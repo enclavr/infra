@@ -1,0 +1,111 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-enclavr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-enclavr}
+      POSTGRES_DB: ${POSTGRES_DB:-enclavr}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enclavr"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      SERVER_READ_TIMEOUT: ${SERVER_READ_TIMEOUT:-30s}
+      SERVER_WRITE_TIMEOUT: ${SERVER_WRITE_TIMEOUT:-30s}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-enclavr}
+      DB_PASSWORD: ${DB_PASSWORD:-enclavr}
+      DB_NAME: ${DB_NAME:-enclavr}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
+      REFRESH_EXPIRATION: ${REFRESH_EXPIRATION:-168h}
+      OIDC_ENABLED: ${OIDC_ENABLED:-false}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      STUN_SERVER: ${STUN_SERVER:-stun:stun.l.google.com:19302}
+      TURN_SERVER: ${TURN_SERVER:-}
+      TURN_USER: ${TURN_USER:-}
+      TURN_PASS: ${TURN_PASS:-}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+      NEXT_PUBLIC_STUN_SERVER: ${NEXT_PUBLIC_STUN_SERVER:-stun:stun.l.google.com:19302}
+      NEXT_PUBLIC_TURN_SERVER: ${NEXT_PUBLIC_TURN_SERVER:-}
+      NEXT_PUBLIC_TURN_USER: ${NEXT_PUBLIC_TURN_USER:-}
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+
+  coturn:
+    image: coturn/coturn:latest
+    environment:
+      - TURN_USER=${TURN_USER:-enclavr}
+      - TURN_PASS=${TURN_PASS:-enclavr}
+      - REALM=${REALM:-enclavr}
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "49152-49172:49152-49172"
+      - "49152-49172:49152-49172/udp"
+    volumes:
+      - turn_data:/var/lib/coturn
+    command: >
+      --verbose
+      --user=${TURN_USER:-enclavr}:${TURN_PASS:-enclavr}
+      --realm=${REALM:-enclavr}
+      --listening-port=3478
+      --min-port=49152
+      --max-port=49172
+      --log-file=stdout
+      --syslog
+
+volumes:
+  postgres_data:
+  redis_data:
+  turn_data:
