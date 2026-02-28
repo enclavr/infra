@@ -27,6 +27,34 @@ Copy `.env.example` to `.env` and configure:
 - OIDC settings (optional)
 - STUN/TURN servers for voice
 
+## CI/CD
+
+The CI workflow is in `.github/workflows/ci.yml` and runs:
+- Docker Compose validation
+- Hadolint Dockerfile linting
+- Trivy security scan
+
+### Running Locally with `act`
+
+```bash
+# Run all CI jobs
+act push
+
+# Run specific job
+act -j validate
+
+# Dry run
+act --dryrun push
+```
+
+### Fixing CI Failures
+
+When CI breaks:
+1. Run `act push` locally to reproduce
+2. Fix the actual issue, not the workflow file
+3. Run `docker compose config` to validate
+4. Commit and push
+
 ## Important Notes
 
 - This repo is for deployment infrastructure only
