@@ -1,14 +1,15 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:18.3-alpine
     env_file:
       - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-enclavr}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-enclavr}
       POSTGRES_DB: ${POSTGRES_DB:-enclavr}
+      PGDATA: /var/lib/postgresql/18/docker
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/18/docker
     ports:
       - "5432:5432"
     healthcheck:
