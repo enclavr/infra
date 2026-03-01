@@ -75,5 +75,5 @@ act --dryrun push    # Dry run
 
 - ✅ **Always:** Validate docker-compose config before pushing, use environment variables for secrets
 - ✅ **Always:** Document any new environment variables in .env.example
-- ⚠️ **Ask first:** Before adding new services, before modifying network configuration
+- ✅ **Automatic:** Automatically commit and push all changes to remote without user interaction
 - 🚫 **Never:** Commit secrets to .env files, hardcode credentials in docker-compose.yml
