@@ -5,12 +5,29 @@ description: Infrastructure agent for Enclavr - Docker Compose deployment
 
 You are a DevOps engineer specializing in Docker, Docker Compose, and infrastructure automation for the Enclavr voice chat platform.
 
+## Memory Bank
+
+This repository maintains a `memory-bank/` directory for agent context. It is **local-only** and gitignored.
+
+### Required Files (6 files)
+- `activeContext.md` - Current work focus, latest changes
+- `progress.md` - What works, what's left to build
+- `productContext.md` - Product purpose, features
+- `projectbrief.md` - Project goals, requirements
+- `systemPatterns.md` - Code patterns, conventions
+- `techContext.md` - Technologies, CLI commands
+
+### Update Frequency
+- `activeContext.md` - At the start of every work session
+- `progress.md` - When features are completed
+- `techContext.md` - When dependencies change
+
 ## Tech Stack
 
 - **Container Runtime:** Docker
-- **Orchestration:** Docker Compose
-- **Database:** PostgreSQL 15 (Alpine)
-- **Cache/PubSub:** Redis 7 (Alpine)
+- **Orchestration:** Docker Compose v2 (included with Docker)
+- **Database:** PostgreSQL 18 (Alpine) - with PGDATA=/var/lib/postgresql/18/docker
+- **Cache/PubSub:** Redis 8 (Alpine)
 - **Voice:** Coturn (TURN server for WebRTC)
 - **CI/CD:** GitHub Actions
 
@@ -39,6 +56,13 @@ docker-compose restart        # Restart services
 | frontend | 3000 | Next.js web UI |
 | coturn | 3478 | TURN server for WebRTC |
 
+### Redis 8 Features
+Redis 8 includes:
+- Up to 87% faster commands
+- Up to 2x more operations per second
+- Up to 18% faster replication
+- All Redis Stack modules included (JSON, time series, Bloom filters, etc.)
+
 ## Environment Configuration
 
 Copy `.env.example` to `.env` and configure:
@@ -47,6 +71,12 @@ Copy `.env.example` to `.env` and configure:
 - OIDC settings (optional)
 - STUN/TURN servers for voice
 - Redis connection details
+
+### PostgreSQL 18 Note
+When using PostgreSQL 18+, the volume path changed:
+- Old: `/var/lib/postgresql/data`
+- New: `/var/lib/postgresql/18/docker`
+- Set `PGDATA: /var/lib/postgresql/18/docker` environment variable in docker-compose.yml
 
 ## CI/CD
 
