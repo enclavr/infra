@@ -29,7 +29,7 @@ jobs:
           docker-compose config --quiet
 
       - name: Lint Dockerfile
-        uses: hadolint/hadolint@v2
+        uses: hadolint/hadolint@v2.1.0
         with:
           dockerfile: ../server/Dockerfile
           ignore: DL3008
