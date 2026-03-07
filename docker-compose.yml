@@ -1,4 +1,9 @@
 services:
+  # ============================================
+  # PostgreSQL Database (Primary Data Store)
+  # ============================================
+  # Uses PostgreSQL 18.3 Alpine for small footprint
+  # PGDATA path updated for PostgreSQL 18 compatibility
   postgres:
     image: postgres:18.3-alpine
     env_file:
@@ -18,7 +23,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
+  # ============================================
+  # Redis Cache & Pub/Sub (Real-time Messaging)
+  # ============================================
+  # Redis 8 provides 2x throughput and 87% faster commands
+  # Used for WebSocket pub/sub across multiple server instances
   redis:
     image: redis:8-alpine
     ports:
@@ -31,7 +48,19 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    # Redis 8 is optimized for performance; limits prevent memory exhaustion
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
+  # ============================================
+  # Go Backend API Server
+  # ============================================
+  # Multi-stage build: golang builder → alpine runtime
+  # Runs as non-root user (UID 1000) for security
   server:
     build:
       context: ./server
@@ -66,12 +95,28 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+    # Run as non-root user for security
+    user: "1000:1000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpu: '1'
+        reservations:
+          memory: 256M
+          cpu: '0.5'
 
+  # ============================================
+  # Next.js Frontend (Static Build + Nginx)
+  # ============================================
+  # Multi-stage build: Bun builder → Nginx static server
+  # Serves built static files on port 80
   frontend:
     build:
       context: ./frontend
@@ -86,7 +131,19 @@ services:
     restart: unless-stopped
     depends_on:
       - server
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
+  # ============================================
+  # Coturn TURN Server (WebRTC Relay)
+  # ============================================
+  # TURN server for NAT traversal in restrictive networks
+  # Required for reliable voice/video when STUN alone isn't sufficient
   coturn:
     image: coturn/coturn:latest
     environment:
@@ -94,10 +151,10 @@ services:
       - TURN_PASS=${TURN_PASS:-enclavr}
       - REALM=${REALM:-enclavr}
     ports:
-      - "3478:3478"
-      - "3478:3478/udp"
-      - "49152-49172:49152-49172"
-      - "49152-49172:49152-49172/udp"
+      - "3478:3478"           # TURN/TLS control port
+      - "3478:3478/udp"       # TURN control (UDP)
+      - "49152-49172:49152-49172"     # TURN media port range (TCP)
+      - "49152-49172:49152-49172/udp" # TURN media port range (UDP)
     volumes:
       - turn_data:/var/lib/coturn
     restart: unless-stopped
@@ -110,6 +167,15 @@ services:
       --max-port=49172
       --log-file=stdout
       --syslog
+    # Resource limits for TURN server (UDP bandwidth can be high)
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpu: '1'
+        reservations:
+          memory: 128M
+          cpu: '0.5'
 
 volumes:
   postgres_data:
