@@ -257,3 +257,44 @@ codesearch --query "Docker Compose PostgreSQL Redis setup" --tokensNum 5000
 - ✅ Use `codesearch` for code examples and implementation patterns
 - ✅ Use `webfetch` for full documentation pages
 - 🚫 Don't use for real-time data or API calls
+
+### Sentry MCP Tools
+
+Use these tools for error tracking and performance monitoring.
+
+```bash
+# Get authenticated user info
+sentry_whoami
+
+# Find organizations you have access to
+sentry_find_organizations
+
+# Find projects in an organization
+sentry_find_projects --organizationSlug "enclavr"
+
+# Search for issues
+sentry_search_issues --organizationSlug "enclavr" --naturalLanguageQuery "Docker error"
+
+# Get issue details
+sentry_get_issue_details --issueUrl "https://enclavr.sentry.io/issues/123"
+
+# Update issue status
+sentry_update_issue --issueUrl "https://enclavr.sentry.io/issues/123" --status "resolved"
+
+# Get project DSNs
+sentry_find_dsns --organizationSlug "enclavr" --projectSlug "infra"
+```
+
+### Sequential Thinking Tool
+
+Use this tool for complex problem-solving through structured thought processes.
+
+```bash
+# Analyze a problem with sequential thinking
+mcp-sequential-thinking_sequentialthinking --thought "Analyzing the problem step by step..." --nextThoughtNeeded true --thoughtNumber 1 --totalThoughts 5
+```
+
+**When to use Sequential Thinking:**
+- ✅ Use for complex multi-step problems
+- ✅ Use for planning and design with room for revision
+- ✅ Use when full scope might not be clear initially
