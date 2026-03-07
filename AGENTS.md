@@ -161,3 +161,99 @@ gh run watch 12345                          # Watch run progress
 gh run list                                   # Check CI status
 gh run rerun --failed                         # Rerun failed jobs
 ```
+
+## MCP Tools Available
+
+This project has access to MCP (Model Context Protocol) tools that you MUST use when applicable.
+
+### Context7 MCP Tools
+
+Use these tools to query library/framework documentation. NEVER use web search for library docs.
+
+```bash
+# Resolve library name to ID (call this first)
+context7_resolve-library-id --libraryName "docker" --query "docker compose"
+
+# Query library documentation
+context7_query-docs --libraryId "/docker/cli" --query "docker compose up"
+```
+
+**When to use Context7 MCP tools:**
+- ✅ ALWAYS use for Docker, Docker Compose, PostgreSQL, etc. documentation
+- ✅ ALWAYS use before web search for library-specific questions
+- ✅ Use for CLI examples, best practices, configuration
+- 🚫 NEVER use for general programming questions or concepts
+
+### Git MCP Tools
+
+Use these tools for Git operations. They provide better integration than bash git commands.
+
+```bash
+# Check working tree status
+mcp-server-git_git_status --repo_path "/path/to/repo"
+
+# View staged changes
+mcp-server-git_git_diff_staged --repo_path "/path/to/repo"
+
+# View unstaged changes
+mcp-server-git_git_diff_unstaged --repo_path "/path/to/repo"
+
+# View differences between branches/commits
+mcp-server-git_git_diff --repo_path "/path/to/repo" --target "main"
+
+# Stage files
+mcp-server-git_git_add --repo_path "/path/to/repo" --files ["docker-compose.yml"]
+
+# Unstage changes
+mcp-server-git_git_reset --repo_path "/path/to/repo"
+
+# Commit changes
+mcp-server-git_git_commit --repo_path "/path/to/repo" --message "feat: update docker config"
+
+# View commit log
+mcp-server-git_git_log --repo_path "/path/to/repo" --max_count 10
+
+# List branches
+mcp-server-git_git_branch --repo_path "/path/to/repo" --branch_type "all"
+
+# Create branch
+mcp-server-git_git_create_branch --repo_path "/path/to/repo" --branch_name "feature-new"
+
+# Checkout branch
+mcp-server-git_git_checkout --repo_path "/path/to/repo" --branch_name "feature-new"
+```
+
+**When to use Git MCP tools:**
+- ✅ ALWAYS use instead of bash git commands for better integration
+- ✅ Use for staging, committing, viewing diffs
+- ✅ Use for branch operations
+- 🚫 NEVER use bash git commands when MCP tools are available
+
+## Best Practices
+
+1. **Library Docs:** Use Context7 MCP tools BEFORE web search for library questions
+2. **Git:** Use Git MCP tools instead of bash git commands
+3. **GitHub:** Use `gh` CLI for all GitHub operations
+4. **Committing:** Use MCP tools to stage and commit changes
+5. **Web Search:** Use websearch for current information, codesearch for code examples
+
+### Web Search & Fetch Tools
+
+Use these tools for finding current information and fetching web content.
+
+```bash
+# Search the web for current information
+websearch --query "Docker Compose best practices 2025" --numResults 5
+
+# Fetch web page content
+webfetch --url "https://docs.docker.com/compose/" --format "markdown"
+
+# Search for code examples
+codesearch --query "Docker Compose PostgreSQL Redis setup" --tokensNum 5000
+```
+
+**When to use Web tools:**
+- ✅ Use `websearch` for current events, tutorials, and recent information
+- ✅ Use `codesearch` for code examples and implementation patterns
+- ✅ Use `webfetch` for full documentation pages
+- 🚫 Don't use for real-time data or API calls
