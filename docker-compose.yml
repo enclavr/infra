@@ -12,8 +12,9 @@ services:
       - postgres_data:/var/lib/postgresql/18/docker
     ports:
       - "5432:5432"
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U enclavr"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enclavr}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,6 +25,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -63,6 +65,7 @@ services:
       REDIS_DB: ${REDIS_DB:-0}
     ports:
       - "8080:8080"
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,6 +83,7 @@ services:
       NEXT_PUBLIC_TURN_USER: ${NEXT_PUBLIC_TURN_USER:-}
     ports:
       - "3000:80"
+    restart: unless-stopped
     depends_on:
       - server
 
@@ -96,6 +100,7 @@ services:
       - "49152-49172:49152-49172/udp"
     volumes:
       - turn_data:/var/lib/coturn
+    restart: unless-stopped
     command: >
       --verbose
       --user=${TURN_USER:-enclavr}:${TURN_PASS:-enclavr}
