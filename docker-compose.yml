@@ -20,9 +20,11 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enclavr}"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 40s
+    # Security: postgres image runs as non-root by default
     # Resource limits for production stability
     deploy:
       resources:
@@ -38,6 +40,7 @@ services:
   # Used for WebSocket pub/sub across multiple server instances
   redis:
     image: redis:8-alpine
+    command: redis-server --appendonly yes --save 60 1
     ports:
       - "6379:6379"
     volumes:
@@ -45,10 +48,12 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 5
-    # Redis 8 is optimized for performance; limits prevent memory exhaustion
+      start_period: 40s
+    # Security: redis image runs as non-root by default
+    # Resource limits for Redis 8 (performance optimized)
     deploy:
       resources:
         limits:
@@ -77,7 +82,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-enclavr}
       DB_NAME: ${DB_NAME:-enclavr}
       DB_SSLMODE: ${DB_SSLMODE:-disable}
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
       REFRESH_EXPIRATION: ${REFRESH_EXPIRATION:-168h}
       OIDC_ENABLED: ${OIDC_ENABLED:-false}
@@ -95,8 +100,10 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
-    # Run as non-root user for security
+    # Security: run as non-root user
     user: "1000:1000"
+    volumes:
+      - server_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,6 +138,13 @@ services:
     restart: unless-stopped
     depends_on:
       - server
+    # Health check for frontend (nginx serves static files)
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     # Resource limits for production stability
     deploy:
       resources:
@@ -145,7 +159,7 @@ services:
   # TURN server for NAT traversal in restrictive networks
   # Required for reliable voice/video when STUN alone isn't sufficient
   coturn:
-    image: coturn/coturn:latest
+    image: coturn/coturn:4.6.2-alpine
     environment:
       - TURN_USER=${TURN_USER:-enclavr}
       - TURN_PASS=${TURN_PASS:-enclavr}
@@ -160,13 +174,25 @@ services:
     restart: unless-stopped
     command: >
       --verbose
-      --user=${TURN_USER:-enclavr}:${TURN_PASS:-enclavr}
-      --realm=${REALM:-enclavr}
+      --secure-header
+      --no-stdout
       --listening-port=3478
+      --tls-listening-port=3478
       --min-port=49152
       --max-port=49172
       --log-file=stdout
-      --syslog
+      --user=${TURN_USER:-enclavr}:${TURN_PASS:-enclavr}
+      --realm=${REALM:-enclavr}
+      --total-quota=100
+      --bps-capacity=0
+      --stale-nonce
+      --no-multicast-peers
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "3478"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     # Resource limits for TURN server (UDP bandwidth can be high)
     deploy:
       resources:
@@ -179,5 +205,14 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
   turn_data:
+    driver: local
+  server_uploads:
+    driver: local
+
+networks:
+  default:
+    name: infra_default
