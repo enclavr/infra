@@ -30,7 +30,7 @@ jobs:
 
       - name: Validate Docker Compose
         run: |
-          docker-compose config --quiet
+          docker compose config --quiet
 
   security:
     runs-on: ubuntu-latest
