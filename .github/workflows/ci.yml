@@ -28,6 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup environment
+        run: cp .env.example .env
+
       - name: Validate Docker Compose
         run: |
           docker compose config --quiet
