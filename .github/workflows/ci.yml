@@ -32,6 +32,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Validate Docker Compose
+        working-directory: ${{ github.workspace }}
         run: |
           docker compose config --quiet
 
