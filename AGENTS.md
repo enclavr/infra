@@ -35,15 +35,15 @@ This repository maintains a `memory-bank/` directory for agent context. It is **
 
 ```bash
 # Start services
-docker-compose up -d          # Start all services
-docker-compose down           # Stop all services
-docker-compose logs -f        # View logs
-docker-compose ps             # Check status
-docker-compose config         # Validate config
+docker compose up -d          # Start all services
+docker compose down           # Stop all services
+docker compose logs -f        # View logs
+docker compose ps             # Check status
+docker compose config         # Validate config
 
 # Development
-docker-compose build          # Build images
-docker-compose restart        # Restart services
+docker compose build          # Build images
+docker compose restart        # Restart services
 ```
 
 ## Services
