@@ -20,16 +20,16 @@ cp .env.example .env
 # Edit .env and change all default passwords and secrets
 
 # 3. Start all services
-docker-compose up -d
+docker compose up -d
 
 # 4. Check status
-docker-compose ps
+docker compose ps
 
 # 5. View logs
-docker-compose logs -f
+docker compose logs -f
 
 # 6. Stop all services
-docker-compose down
+docker compose down
 ```
 
 ## Services
@@ -121,7 +121,7 @@ Back up these volumes regularly.
 
 ### Services won't start
 
-Check logs: `docker-compose logs <service-name>`
+Check logs: `docker compose logs <service-name>`
 
 Common issues:
 - **Port conflicts**: Ensure ports 5432, 6379, 8080, 3000, 3478 are free
@@ -130,13 +130,13 @@ Common issues:
 
 ### Database connection errors
 
-Ensure postgres is healthy: `docker-compose ps postgres`
-Check postgres logs: `docker-compose logs postgres`
+Ensure postgres is healthy: `docker compose ps postgres`
+Check postgres logs: `docker compose logs postgres`
 
 ### Redis connection errors
 
-Verify redis is running: `docker-compose ps redis`
-Check redis health: `docker-compose exec redis redis-cli ping`
+Verify redis is running: `docker compose ps redis`
+Check redis health: `docker compose exec redis redis-cli ping`
 
 ### Server can't connect to database
 

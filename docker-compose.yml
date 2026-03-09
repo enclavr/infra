@@ -68,7 +68,7 @@ services:
   # Runs as non-root user (UID 1000) for security
   server:
     build:
-      context: ./server
+      context: ../server
       dockerfile: Dockerfile
     env_file:
       - .env
@@ -126,7 +126,7 @@ services:
   # Serves built static files on port 80
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
@@ -165,28 +165,14 @@ services:
       - TURN_PASS=${TURN_PASS:-enclavr}
       - REALM=${REALM:-enclavr}
     ports:
-      - "3478:3478"           # TURN/TLS control port
-      - "3478:3478/udp"       # TURN control (UDP)
-      - "49152-49172:49152-49172"     # TURN media port range (TCP)
-      - "49152-49172:49152-49172/udp" # TURN media port range (UDP)
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "49152-49172:49152-49172"
+      - "49152-49172:49152-49172/udp"
     volumes:
       - turn_data:/var/lib/coturn
     restart: unless-stopped
-    command: >
-      --verbose
-      --secure-header
-      --no-stdout
-      --listening-port=3478
-      --tls-listening-port=3478
-      --min-port=49152
-      --max-port=49172
-      --log-file=stdout
-      --user=${TURN_USER:-enclavr}:${TURN_PASS:-enclavr}
-      --realm=${REALM:-enclavr}
-      --total-quota=100
-      --bps-capacity=0
-      --stale-nonce
-      --no-multicast-peers
+    command: ["turnserver", "-n", "--no-stdout-log", "--log-file=stdout", "--user=enclavr:enclavr", "--realm=enclavr", "--listening-port=3478", "--min-port=49152", "--max-port=49172"]
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "3478"]
       interval: 30s
