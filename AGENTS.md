@@ -272,17 +272,68 @@ sentry_find_organizations
 # Find projects in an organization
 sentry_find_projects --organizationSlug "enclavr"
 
+# Find teams in an organization
+sentry_find_teams --organizationSlug "enclavr"
+
+# Get project DSNs
+sentry_find_dsns --organizationSlug "enclavr" --projectSlug "frontend"
+sentry_find_dsns --organizationSlug "enclavr" --projectSlug "api"
+
 # Search for issues
 sentry_search_issues --organizationSlug "enclavr" --naturalLanguageQuery "Docker error"
+sentry_search_issues --organizationSlug "enclavr" --naturalLanguageQuery "unresolved errors"
+sentry_search_issues --organizationSlug "enclavr" --naturalLanguageQuery "deployment errors"
+
+# Search events and get statistics
+sentry_search_events --organizationSlug "enclavr" --naturalLanguageQuery "errors from the last 24 hours"
+sentry_search_events --organizationSlug "enclavr" --naturalLanguageQuery "all events from the last week"
 
 # Get issue details
 sentry_get_issue_details --issueUrl "https://enclavr.sentry.io/issues/123"
 
+# Search events within an issue
+sentry_search_issue_events --issueUrl "https://enclavr.sentry.io/issues/123" --naturalLanguageQuery "from last hour"
+
+# Analyze issue with AI (Seer)
+sentry_analyze_issue_with_seer --issueUrl "https://enclavr.sentry.io/issues/123"
+
+# Get tag values for an issue
+sentry_get_issue_tag_values --issueUrl "https://enclavr.sentry.io/issues/123" --tagKey "environment"
+
 # Update issue status
 sentry_update_issue --issueUrl "https://enclavr.sentry.io/issues/123" --status "resolved"
 
-# Get project DSNs
-sentry_find_dsns --organizationSlug "enclavr" --projectSlug "infra"
+# Create team
+sentry_create_team --organizationSlug "enclavr" --name "infra"
+
+# Create project
+sentry_create_project --organizationSlug "enclavr" --teamSlug "infra" --name "deployment"
+```
+
+## Comprehensive Sentry Testing Workflow (Infra)
+
+When debugging infrastructure issues, ALWAYS run these Sentry MCP tools in order:
+
+### Step 1: Verify Connection
+1. `sentry_whoami` - Verify authentication
+2. `sentry_find_organizations` - Confirm enclavr org exists
+
+### Step 2: Get Project Status
+1. `sentry_find_projects` - Verify all projects exist
+2. `sentry_find_dsns` - Verify DSNs are configured in docker-compose.yml
+
+### Step 3: Search Issues
+1. `sentry_search_issues` with "Docker error"
+2. `sentry_search_issues` with "deployment errors"
+3. `sentry_search_events` with "errors from the last 24 hours"
+
+### Step 4: Analyze Issues
+1. `sentry_get_issue_details` on each issue
+2. `sentry_analyze_issue_with_seer` for root cause
+
+### Step 5: Fix and Update
+1. Fix Docker configuration issues
+2. `sentry_update_issue` to mark as resolved
 ```
 
 ### Sequential Thinking Tool

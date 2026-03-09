@@ -97,6 +97,8 @@ services:
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_DB: ${REDIS_DB:-0}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -133,6 +135,8 @@ services:
       NEXT_PUBLIC_STUN_SERVER: ${NEXT_PUBLIC_STUN_SERVER:-stun:stun.l.google.com:19302}
       NEXT_PUBLIC_TURN_SERVER: ${NEXT_PUBLIC_TURN_SERVER:-}
       NEXT_PUBLIC_TURN_USER: ${NEXT_PUBLIC_TURN_USER:-}
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
     ports:
       - "3000:80"
     restart: unless-stopped
