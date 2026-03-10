@@ -53,6 +53,26 @@ All configuration is externalized via environment variables. See [`.env.example`
 - `POSTGRES_PASSWORD` - Use strong password
 - `DB_PASSWORD` - Should match `POSTGRES_PASSWORD`
 - `TURN_USER` / `TURN_PASS` - TURN server credentials
+- `ADMIN_PASSWORD` - Set to create default admin user
+
+### Admin User Configuration
+
+The server automatically creates an admin user on first startup:
+
+| Variable | Description |
+|----------|-------------|
+| `ADMIN_USERNAME` | Admin username (default: admin) |
+| `ADMIN_PASSWORD` | Admin password - **set this to create default admin** |
+| `ADMIN_EMAIL` | Admin email (default: admin@enclavr.local) |
+| `FIRST_USER_IS_ADMIN` | First registered user becomes admin (default: true) |
+
+**Quick Setup:**
+```bash
+# Set admin password in .env
+ADMIN_PASSWORD=your-secure-password
+```
+
+On first server start, the admin user is created automatically.
 
 ### Production Recommendations
 

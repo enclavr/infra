@@ -98,7 +98,11 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       REDIS_DB: ${REDIS_DB:-0}
       SENTRY_DSN: ${SENTRY_DSN:-}
-      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@enclavr.local}
+      FIRST_USER_IS_ADMIN: ${FIRST_USER_IS_ADMIN:-true}
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -136,7 +140,7 @@ services:
       NEXT_PUBLIC_TURN_SERVER: ${NEXT_PUBLIC_TURN_SERVER:-}
       NEXT_PUBLIC_TURN_USER: ${NEXT_PUBLIC_TURN_USER:-}
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
-      NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
+      NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-development}
     ports:
       - "3000:80"
     restart: unless-stopped
