@@ -29,7 +29,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup environment
-        run: cp .env.example .env
+        run: |
+          if [ -f .env.example ]; then
+            cp .env.example .env
+          fi
 
       - name: Validate Docker Compose
         working-directory: ${{ github.workspace }}
