@@ -32,6 +32,8 @@ jobs:
         run: |
           if [ -f .env.example ]; then
             cp .env.example .env
+          elif [ ! -f .env ]; then
+            touch .env
           fi
 
       - name: Validate Docker Compose
