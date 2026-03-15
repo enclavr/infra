@@ -30,7 +30,6 @@ jobs:
 
       - name: Setup environment
         run: |
-          ls -la
           if [ -f .env.example ]; then
             cp .env.example .env
             echo "Created .env from .env.example"
@@ -38,7 +37,6 @@ jobs:
             touch .env
             echo "Created empty .env"
           fi
-          ls -la .env*
 
       - name: Validate Docker Compose
         run: |
