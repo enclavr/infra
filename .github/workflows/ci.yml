@@ -28,6 +28,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-v2
+
       - name: Setup environment
         run: |
           if [ -f .env.example ]; then
