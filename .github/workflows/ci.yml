@@ -24,6 +24,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +32,8 @@ jobs:
       - name: Set up Docker Compose
         run: |
           sudo apt-get update
-          sudo apt-get install -y docker-compose-v2
+          sudo apt-get install -y docker-compose-v2 || true
+          docker compose version
 
       - name: Setup environment
         run: |
