@@ -176,7 +176,11 @@ services:
     volumes:
       - turn_data:/var/lib/coturn
     restart: unless-stopped
-    command: ["turnserver", "-n", "--no-stdout-log", "--log-file=stdout", "--user=enclavr:enclavr", "--realm=enclavr", "--listening-port=3478", "--min-port=49152", "--max-port=49172"]
+    command: >
+      turnserver -n --no-stdout-log --log-file=stdout
+      --user=${TURN_USER:-enclavr}:${TURN_PASS:-enclavr}
+      --realm=${REALM:-enclavr} --listening-port=3478
+      --min-port=49152 --max-port=49172
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "3478"]
       interval: 30s
