@@ -29,26 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Compose
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose-v2 || true
-          docker compose version
-
-      - name: Setup environment
-        run: |
-          set -e
-          if [ -f .env.example ]; then
-            cp .env.example .env
-            echo "Created .env from .env.example"
-          else
-            touch .env
-            echo "Created empty .env"
-          fi
-          ls -la .env*
-
       - name: Validate Docker Compose
         run: |
+          docker compose version
           docker compose config --quiet
 
   security:
