@@ -32,6 +32,7 @@ jobs:
       - name: Validate Docker Compose
         run: |
           # Create dummy .env if not exists (for validation only)
+          # This MUST happen before any docker compose commands
           if [ ! -f .env ]; then
             cp .env.example .env
           fi
