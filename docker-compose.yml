@@ -144,7 +144,7 @@ services:
       - server
     # Health check for frontend (nginx serves static files)
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
+      test: ["CMD-SHELL", "curl -f http://localhost/ || wget -qO- http://localhost/"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -181,6 +181,7 @@ services:
       --user=${TURN_USER:-enclavr}:${TURN_PASS:-enclavr}
       --realm=${REALM:-enclavr} --listening-port=3478
       --min-port=49152 --max-port=49172
+      --lt-cred-mech --no-tls --no-tlsv1 --no-tlsv1_1
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "3478"]
       interval: 30s
