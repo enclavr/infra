@@ -34,10 +34,10 @@ jobs:
           # Create dummy .env if not exists (for validation only)
           # This MUST happen before any docker compose commands
           if [ ! -f .env ]; then
-            cp .env.example .env
+            cp .env.example .env || true
           fi
           docker compose version
-          docker compose config --quiet
+          docker compose config
 
   security:
     runs-on: ubuntu-latest
