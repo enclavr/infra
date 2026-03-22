@@ -1,0 +1,137 @@
+pg_replication:
+  query: "SELECT CASE WHEN NOT is_replica THEN 0 ELSE GREATEST(0, EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))) END AS lag, CASE WHEN is_replica THEN 1 ELSE 0 END AS is_replica FROM pg_is_in_recovery()"
+  metrics:
+    - lag:
+        usage: "GAUGE"
+        description: "Replication lag in seconds"
+    - is_replica:
+        usage: "GAUGE"
+        description: "1 if replica, 0 if primary"
+
+pg_stat_database:
+  query: "SELECT datname, numbackends, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, conflicts, temp_files, temp_bytes, deadlocks, blk_read_time, blk_write_time, stats_reset FROM pg_stat_database WHERE datname = current_database()"
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "Database name"
+    - numbackends:
+        usage: "GAUGE"
+        description: "Number of backends"
+    - xact_commit:
+        usage: "COUNTER"
+        description: "Transactions committed"
+    - xact_rollback:
+        usage: "COUNTER"
+        description: "Transactions rolled back"
+    - blks_read:
+        usage: "COUNTER"
+        description: "Blocks read"
+    - blks_hit:
+        usage: "COUNTER"
+        description: "Blocks hit"
+    - tup_returned:
+        usage: "COUNTER"
+        description: "Tuples returned"
+    - tup_fetched:
+        usage: "COUNTER"
+        description: "Tuples fetched"
+    - tup_inserted:
+        usage: "COUNTER"
+        description: "Tuples inserted"
+    - tup_updated:
+        usage: "COUNTER"
+        description: "Tuples updated"
+    - tup_deleted:
+        usage: "COUNTER"
+        description: "Tuples deleted"
+    - conflicts:
+        usage: "COUNTER"
+        description: "Conflicts"
+    - temp_files:
+        usage: "COUNTER"
+        description: "Temporary files"
+    - temp_bytes:
+        usage: "COUNTER"
+        description: "Temporary bytes"
+    - deadlocks:
+        usage: "COUNTER"
+        description: "Deadlocks"
+    - blk_read_time:
+        usage: "COUNTER"
+        description: "Block read time"
+    - blk_write_time:
+        usage: "COUNTER"
+        description: "Block write time"
+
+pg_stat_bgwriter:
+  query: "SELECT checkpoints_timed, checkpoints_req, checkpoint_write_time, checkpoint_sync_time, buffers_checkpoint, buffers_clean, buffers_backend, buffers_backend_fsync, buffers_alloc, stats_reset FROM pg_stat_bgwriter"
+  metrics:
+    - checkpoints_timed:
+        usage: "COUNTER"
+        description: "Checkpoints timed"
+    - checkpoints_req:
+        usage: "COUNTER"
+        description: "Checkpoints requested"
+    - checkpoint_write_time:
+        usage: "COUNTER"
+        description: "Checkpoint write time"
+    - checkpoint_sync_time:
+        usage: "COUNTER"
+        description: "Checkpoint sync time"
+    - buffers_checkpoint:
+        usage: "COUNTER"
+        description: "Buffers checkpoint"
+    - buffers_clean:
+        usage: "COUNTER"
+        description: "Buffers cleaned"
+    - buffers_backend:
+        usage: "COUNTER"
+        description: "Buffers backend"
+    - buffers_backend_fsync:
+        usage: "COUNTER"
+        description: "Buffers backend fsync"
+    - buffers_alloc:
+        usage: "COUNTER"
+        description: "Buffers allocated"
+
+pg_stat_activity:
+  query: "SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE state = 'active') AS active, COUNT(*) FILTER (WHERE state = 'idle') AS idle, COUNT(*) FILTER (WHERE state = 'idle in transaction') AS idle_in_transaction, COUNT(*) FILTER (WHERE state = 'idle in transaction (aborted)') AS idle_in_transaction_aborted, COUNT(*) FILTER (WHERE wait_event_type IS NOT NULL) AS waiting FROM pg_stat_activity WHERE pid != pg_backend_pid()"
+  metrics:
+    - total:
+        usage: "GAUGE"
+        description: "Total connections"
+    - active:
+        usage: "GAUGE"
+        description: "Active connections"
+    - idle:
+        usage: "GAUGE"
+        description: "Idle connections"
+    - idle_in_transaction:
+        usage: "GAUGE"
+        description: "Idle in transaction connections"
+    - idle_in_transaction_aborted:
+        usage: "GAUGE"
+        description: "Idle in transaction (aborted) connections"
+    - waiting:
+        usage: "GAUGE"
+        description: "Waiting connections"
+
+pg_database_size:
+  query: "SELECT datname, pg_database_size(datname) AS size_bytes FROM pg_database WHERE datname = current_database()"
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "Database name"
+    - size_bytes:
+        usage: "GAUGE"
+        description: "Database size in bytes"
+
+pg_tablespace_size:
+  query: "SELECT spcname, pg_tablespace_size(spcname) AS size_bytes FROM pg_tablespace WHERE spcname IN ('pg_default', 'pg_global')"
+  metrics:
+    - spcname:
+        usage: "LABEL"
+        description: "Tablespace name"
+    - size_bytes:
+        usage: "GAUGE"
+        description: "Tablespace size in bytes"

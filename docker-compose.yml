@@ -163,7 +163,7 @@ services:
   # TURN server for NAT traversal in restrictive networks
   # Required for reliable voice/video when STUN alone isn't sufficient
   coturn:
-    image: coturn/coturn:4.6.2-alpine
+    image: coturn/coturn:4.9.0-alpine
     environment:
       - TURN_USER=${TURN_USER:-enclavr}
       - TURN_PASS=${TURN_PASS:-enclavr}
@@ -198,6 +198,165 @@ services:
           memory: 128M
           cpus: '0.5'
 
+  # ============================================
+  # Prometheus (Metrics Collection)
+  # ============================================
+  # Time-series database for collecting metrics
+  prometheus:
+    image: prom/prometheus:v2.54.0-alpine
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+    depends_on:
+      - node-exporter
+      - postgres-exporter
+      - redis-exporter
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ============================================
+  # Node Exporter (System Metrics)
+  # ============================================
+  # Exports system-level metrics (CPU, memory, disk, network)
+  node-exporter:
+    image: prom/node-exporter:v1.8.0-alpine
+    container_name: node-exporter
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9100/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # ============================================
+  # PostgreSQL Exporter (Database Metrics)
+  # ============================================
+  # Exports PostgreSQL query statistics and metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0-alpine
+    container_name: postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USER:-enclavr}:${DB_PASSWORD:-enclavr}@postgres:5432/${DB_NAME:-enclavr}?sslmode=disable"
+    ports:
+      - "9187:9187"
+    volumes:
+      - ./queries.yaml:/opt/postgres_exporter/queries.yaml:ro
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9187/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # ============================================
+  # Redis Exporter (Cache Metrics)
+  # ============================================
+  # Exports Redis performance and memory metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.61.0-alpine
+    container_name: redis-exporter
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+    ports:
+      - "9121:9121"
+    restart: unless-stopped
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9121/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # ============================================
+  # Grafana (Metrics Visualization)
+  # ============================================
+  # Visualize metrics from Prometheus with dashboards
+  grafana:
+    image: grafana/grafana:11.2.0-alpine
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:-admin}"
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL:-}"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "${GRAFANA_SERVE_FROM_SUB_PATH:-false}"
+    ports:
+      - "3030:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
 volumes:
   postgres_data:
     driver: local
@@ -206,6 +365,10 @@ volumes:
   turn_data:
     driver: local
   server_uploads:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 networks:
