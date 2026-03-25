@@ -255,6 +255,30 @@ chrome-devtools_close_page --pageId 1
 - ✅ Use for performance analysis
 - 🚫 Don't use for API testing (use actual HTTP requests instead)
 
+### MANDATORY: Chrome DevTools Usage for Container Testing
+
+**⚠️ When testing Docker containers that serve web applications, use Chrome DevTools MCP tools.**
+
+If your infrastructure work involves web-serving containers (frontend, reverse proxies, etc.), verify they work in a browser:
+
+```bash
+# REQUIRED for web container verification:
+# 1. Ensure containers are running: docker compose up -d
+# 2. Use Chrome DevTools MCP to verify:
+
+# List available pages to confirm Chrome is running
+chrome-devtools_list_pages
+
+# Navigate to the web application
+chrome-devtools_navigate_page --type "url" --url "http://localhost:3000"
+
+# Take a snapshot to verify page renders
+chrome-devtools_take_snapshot
+
+# Check console for JavaScript errors
+chrome-devtools_list_console_messages
+```
+
 ### Context7 MCP Tools
 
 Use these tools to query library/framework documentation. NEVER use web search for library docs.
