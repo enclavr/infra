@@ -13,8 +13,6 @@ services:
       PGDATA: /var/lib/postgresql/18/docker
     volumes:
       - postgres_data:/var/lib/postgresql/18/docker
-    ports:
-      - "5432:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enclavr}"]
@@ -22,6 +20,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+    labels:
+      logging: "alloy"
     # Security: postgres image runs as non-root by default
     # Resource limits for production stability
     deploy:
@@ -30,6 +30,19 @@ services:
           memory: 512M
         reservations:
           memory: 256M
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+      - monitoring
 
   # ============================================
   # Redis Cache & Pub/Sub (Real-time Messaging)
@@ -39,8 +52,6 @@ services:
   redis:
     image: redis:8-alpine
     command: redis-server --appendonly yes --save 60 1
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -50,6 +61,8 @@ services:
       timeout: 3s
       retries: 5
       start_period: 40s
+    labels:
+      logging: "alloy"
     # Security: redis image runs as non-root by default
     # Resource limits for Redis 8 (performance optimized)
     deploy:
@@ -58,18 +71,28 @@ services:
           memory: 256M
         reservations:
           memory: 128M
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    networks:
+      - backend
 
   # ============================================
   # Go Backend API Server
   # ============================================
-  # Multi-stage build: golang builder → alpine runtime
+  # Multi-stage build: golang builder -> alpine runtime
   # Runs as non-root user (UID 1000) for security
   server:
     build:
       context: ../server
       dockerfile: Dockerfile
-    env_file:
-      - .env
     environment:
       SERVER_PORT: ${SERVER_PORT:-8080}
       SERVER_READ_TIMEOUT: ${SERVER_READ_TIMEOUT:-30s}
@@ -97,9 +120,24 @@ services:
       REDIS_DB: ${REDIS_DB:-0}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@enclavr.local}
+      FIRST_USER_IS_ADMIN: ${FIRST_USER_IS_ADMIN:-true}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
+      UPLOAD_DIR: ${UPLOAD_DIR:-./uploads}
     ports:
       - "8080:8080"
     restart: unless-stopped
+    # Health check for server API
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     # Security: run as non-root user
     user: "1000:1000"
     volumes:
@@ -109,6 +147,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    labels:
+      logging: "alloy"
     # Resource limits for production stability
     deploy:
       resources:
@@ -118,11 +158,18 @@ services:
         reservations:
           memory: 256M
           cpus: '0.5'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - frontend
+      - backend
 
   # ============================================
   # Next.js Frontend (Static Build + Nginx)
   # ============================================
-  # Multi-stage build: Bun builder → Nginx static server
+  # Multi-stage build: Bun builder -> Nginx static server
   # Serves built static files on port 80
   frontend:
     build:
@@ -139,7 +186,10 @@ services:
       - "3000:80"
     restart: unless-stopped
     depends_on:
-      - server
+      server:
+        condition: service_healthy
+    labels:
+      logging: "alloy"
     # Health check for frontend (nginx serves static files)
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
@@ -154,6 +204,19 @@ services:
           memory: 256M
         reservations:
           memory: 128M
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+      - /var/cache/nginx:size=64M
+      - /var/run:size=16M
+    networks:
+      - frontend
 
   # ============================================
   # Coturn TURN Server (WebRTC Relay)
@@ -175,17 +238,20 @@ services:
       - turn_data:/var/lib/coturn
     restart: unless-stopped
     command: >
-      turnserver -n --no-stdout-log --log-file=stdout
+      sh -c "turnserver -n --no-stdout-log --log-file=stdout
       --user=$${TURN_USER}:$${TURN_PASS}
-      --realm=${REALM:-enclavr} --listening-port=3478
+      --realm=$${REALM:-enclavr} --listening-port=3478
       --min-port=49152 --max-port=49172
-      --lt-cred-mech --no-tls --no-tlsv1 --no-tlsv1_1
+      --prometheus
+      --lt-cred-mech --no-tls --no-tlsv1 --no-tlsv1_1"
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "3478"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 40s
+    labels:
+      logging: "alloy"
     # Resource limits for TURN server (UDP bandwidth can be high)
     deploy:
       resources:
@@ -195,6 +261,16 @@ services:
         reservations:
           memory: 128M
           cpus: '0.5'
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - frontend
+      - monitoring
 
   # ============================================
   # Prometheus (Metrics Collection)
@@ -210,16 +286,17 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'
-    ports:
-      - "9090:9090"
     volumes:
       - prometheus_data:/prometheus
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     restart: unless-stopped
     depends_on:
-      - node-exporter
-      - postgres-exporter
-      - redis-exporter
+      node-exporter:
+        condition: service_healthy
+      postgres-exporter:
+        condition: service_healthy
+      redis-exporter:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
@@ -232,6 +309,17 @@ services:
           memory: 512M
         reservations:
           memory: 256M
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    networks:
+      - monitoring
 
   # ============================================
   # Node Exporter (System Metrics)
@@ -244,8 +332,6 @@ services:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    ports:
-      - "9100:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -272,6 +358,8 @@ services:
           memory: 128M
         reservations:
           memory: 64M
+    networks:
+      - monitoring
 
   # ============================================
   # PostgreSQL Exporter (Database Metrics)
@@ -282,13 +370,12 @@ services:
     container_name: postgres-exporter
     environment:
       DATA_SOURCE_NAME: "postgresql://${DB_USER:-enclavr}:${DB_PASSWORD:-enclavr}@postgres:5432/${DB_NAME:-enclavr}?sslmode=disable"
-    ports:
-      - "9187:9187"
     volumes:
       - ./queries.yaml:/opt/postgres_exporter/queries.yaml:ro
     restart: unless-stopped
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9187/metrics"]
       interval: 30s
@@ -301,6 +388,13 @@ services:
           memory: 128M
         reservations:
           memory: 64M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+      - monitoring
 
   # ============================================
   # Redis Exporter (Cache Metrics)
@@ -312,11 +406,10 @@ services:
     environment:
       REDIS_ADDR: "redis://redis:6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
-    ports:
-      - "9121:9121"
     restart: unless-stopped
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9121/metrics"]
       interval: 30s
@@ -329,17 +422,24 @@ services:
           memory: 128M
         reservations:
           memory: 64M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+      - monitoring
 
   # ============================================
-  # Grafana (Metrics Visualization)
+  # Grafana (Metrics & Logs Visualization)
   # ============================================
-  # Visualize metrics from Prometheus with dashboards
+  # Visualize metrics from Prometheus and logs from Loki
   grafana:
     image: grafana/grafana:11.2.0
     container_name: grafana
     environment:
-      GF_SECURITY_ADMIN_USER: "${GRAFANA_USER:-admin}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:-admin}"
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_USER}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD}"
       GF_INSTALL_PLUGINS: grafana-piechart-panel
       GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL:-}"
       GF_SERVER_SERVE_FROM_SUB_PATH: "${GRAFANA_SERVE_FROM_SUB_PATH:-false}"
@@ -350,7 +450,10 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     restart: unless-stopped
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
@@ -363,6 +466,174 @@ services:
           memory: 256M
         reservations:
           memory: 128M
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    networks:
+      - monitoring
+
+  # ============================================
+  # Loki (Log Aggregation)
+  # ============================================
+  # Lightweight log aggregation system by Grafana Labs
+  # Label-based indexing without full-text indexing for low resource usage
+  loki:
+    image: grafana/loki:3.6.8
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    networks:
+      - monitoring
+
+  # ============================================
+  # Grafana Alloy (Log Collection Agent)
+  # ============================================
+  # Replaces deprecated Promtail - collects Docker container logs
+  # and forwards them to Loki for aggregation
+  alloy:
+    image: grafana/alloy:v1.7.4
+    container_name: alloy
+    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+    restart: unless-stopped
+    depends_on:
+      loki:
+        condition: service_healthy
+      docker-socket-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:12345/-/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - monitoring
+
+  # ============================================
+  # Docker Socket Proxy (Secure Docker API Access)
+  # ============================================
+  # Provides restricted read-only access to Docker API for Alloy
+  # Only allows container listing and log reading - no privileged operations
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-socket-proxy
+    environment:
+      CONTAINERS: 1
+      SERVICES: 0
+      TASKS: 0
+      NETWORKS: 0
+      VOLUMES: 0
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2375/_ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777
+    networks:
+      - monitoring
+
+  # ============================================
+  # PostgreSQL Backup (Automated Database Backups)
+  # ============================================
+  # Runs pg_dumpall on a schedule, compresses and rotates backups
+  # Configure BACKUP_RETENTION_DAYS (default: 7) and BACKUP_CRON
+  postgres-backup:
+    image: postgres:18.3-alpine
+    container_name: postgres-backup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Backup service started. Schedule: $${BACKUP_CRON:-0 2 * * *}"
+        # Install supercronic for cron in containers
+        apk add --no-cache supercronic curl >/dev/null 2>&1
+        echo "$${BACKUP_CRON:-0 2 * * *} /backup.sh 2>&1" > /tmp/crontab
+        supercronic /tmp/crontab
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-enclavr}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-enclavr}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_CRON: ${BACKUP_CRON:-0 2 * * *}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-enclavr}
+    volumes:
+      - backup_data:/backups
+      - ./backup.sh:/backup.sh:ro
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
 
 volumes:
   postgres_data:
@@ -377,7 +648,20 @@ volumes:
     driver: local
   grafana_data:
     driver: local
+  loki_data:
+    driver: local
+  backup_data:
+    driver: local
 
 networks:
-  default:
-    name: infra_default
+  frontend:
+    name: enclavr_frontend
+    driver: bridge
+  backend:
+    name: enclavr_backend
+    driver: bridge
+    internal: true
+  monitoring:
+    name: enclavr_monitoring
+    driver: bridge
+    internal: true

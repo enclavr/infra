@@ -1,0 +1,58 @@
+// Grafana Alloy configuration for Enclavr log collection
+// Replaces deprecated Promtail
+
+// Discover Docker containers
+discovery.docker "containers" {
+  host             = "tcp://docker-socket-proxy:2375"
+  refresh_interval = "15s"
+
+  filter {
+    name   = "label"
+    values = ["logging=alloy"]
+  }
+}
+
+// Collect Docker container logs
+loki.source.docker "containers" {
+  host             = "tcp://docker-socket-proxy:2375"
+  targets          = discovery.docker.containers.targets
+  forward_to       = [loki.process.container_logs.receiver]
+  relabel_rules    = discovery.docker.containers.rules
+  refresh_interval = "15s"
+}
+
+// Process container logs
+loki.process "container_logs" {
+  forward_to = [loki.write.enclavr.receiver]
+
+  stage.labels {
+    values = {
+      container = "",
+      compose_service = "com.docker.compose.service",
+      compose_project = "com.docker.compose.project",
+    }
+  }
+
+  stage.label_allow {
+    values = ["container", "compose_service", "compose_project"]
+  }
+
+  stage.output {
+    source = "log"
+  }
+}
+
+// Write logs to Loki
+loki.write "enclavr" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// Collect Docker daemon logs
+loki.source.journal "dockerd" {
+  forward_to = [loki.write.enclavr.receiver]
+  labels     = {
+    job = "dockerd",
+  }
+}
