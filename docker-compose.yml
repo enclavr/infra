@@ -14,6 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/18/docker
     restart: unless-stopped
+    stop_grace_period: 30s
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enclavr}"]
       interval: 10s
@@ -22,6 +23,7 @@ services:
       start_period: 40s
     labels:
       logging: "alloy"
+      backup: "postgres"
     # Security: postgres image runs as non-root by default
     # Resource limits for production stability
     deploy:
@@ -41,8 +43,10 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - backend
-      - monitoring
+      backend:
+        aliases:
+          - db
+      monitoring:
 
   # ============================================
   # Redis Cache & Pub/Sub (Real-time Messaging)
@@ -51,10 +55,11 @@ services:
   # Used for WebSocket pub/sub across multiple server instances
   redis:
     image: redis:8-alpine
-    command: redis-server --appendonly yes --save 60 1
+    command: redis-server --appendonly yes --save 60 1 --maxmemory 200mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    stop_grace_period: 10s
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -82,7 +87,9 @@ services:
     tmpfs:
       - /tmp:size=64M,mode=1777
     networks:
-      - backend
+      backend:
+        aliases:
+          - cache
 
   # ============================================
   # Go Backend API Server
@@ -131,6 +138,8 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+    stop_grace_period: 15s
+    init: true
     # Health check for server API
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
@@ -185,6 +194,8 @@ services:
     ports:
       - "3000:80"
     restart: unless-stopped
+    stop_grace_period: 10s
+    init: true
     depends_on:
       server:
         condition: service_healthy
@@ -225,6 +236,9 @@ services:
   # Required for reliable voice/video when STUN alone isn't sufficient
   coturn:
     image: coturn/coturn:4.9.0-alpine
+    profiles:
+      - voice
+      - full
     environment:
       - TURN_USER=${TURN_USER}
       - TURN_PASS=${TURN_PASS}
@@ -279,6 +293,9 @@ services:
   prometheus:
     image: prom/prometheus:v2.54.0-alpine
     container_name: prometheus
+    profiles:
+      - monitoring
+      - full
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -289,7 +306,10 @@ services:
     volumes:
       - prometheus_data:/prometheus
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
     restart: unless-stopped
+    init: true
+    stop_grace_period: 10s
     depends_on:
       node-exporter:
         condition: service_healthy
@@ -328,6 +348,9 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.8.0-alpine
     container_name: node-exporter
+    profiles:
+      - monitoring
+      - full
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
@@ -368,6 +391,9 @@ services:
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0-alpine
     container_name: postgres-exporter
+    profiles:
+      - monitoring
+      - full
     environment:
       DATA_SOURCE_NAME: "postgresql://${DB_USER:-enclavr}:${DB_PASSWORD:-enclavr}@postgres:5432/${DB_NAME:-enclavr}?sslmode=disable"
     volumes:
@@ -403,6 +429,9 @@ services:
   redis-exporter:
     image: oliver006/redis_exporter:v1.61.0-alpine
     container_name: redis-exporter
+    profiles:
+      - monitoring
+      - full
     environment:
       REDIS_ADDR: "redis://redis:6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
@@ -437,6 +466,9 @@ services:
   grafana:
     image: grafana/grafana:11.2.0
     container_name: grafana
+    profiles:
+      - monitoring
+      - full
     environment:
       GF_SECURITY_ADMIN_USER: "${GRAFANA_USER}"
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD}"
@@ -486,6 +518,9 @@ services:
   loki:
     image: grafana/loki:3.6.8
     container_name: loki
+    profiles:
+      - monitoring
+      - full
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - loki_data:/loki
@@ -521,6 +556,9 @@ services:
   alloy:
     image: grafana/alloy:v1.7.4
     container_name: alloy
+    profiles:
+      - monitoring
+      - full
     command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
@@ -557,6 +595,9 @@ services:
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     container_name: docker-socket-proxy
+    profiles:
+      - monitoring
+      - full
     environment:
       CONTAINERS: 1
       SERVICES: 0
@@ -597,6 +638,9 @@ services:
   postgres-backup:
     image: postgres:18.3-alpine
     container_name: postgres-backup
+    profiles:
+      - backup
+      - full
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -620,6 +664,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h postgres -U ${POSTGRES_USER:-enclavr} || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -638,30 +688,63 @@ services:
 volumes:
   postgres_data:
     driver: local
+    labels:
+      com.enclavr.backup: "true"
+      com.enclavr.description: "PostgreSQL primary database"
   redis_data:
     driver: local
+    labels:
+      com.enclavr.backup: "false"
+      com.enclavr.description: "Redis cache and pub/sub data"
   turn_data:
     driver: local
+    labels:
+      com.enclavr.backup: "false"
+      com.enclavr.description: "Coturn TURN server data"
   server_uploads:
     driver: local
+    labels:
+      com.enclavr.backup: "true"
+      com.enclavr.description: "Server file uploads"
   prometheus_data:
     driver: local
+    labels:
+      com.enclavr.backup: "false"
+      com.enclavr.description: "Prometheus metrics data"
   grafana_data:
     driver: local
+    labels:
+      com.enclavr.backup: "true"
+      com.enclavr.description: "Grafana dashboards and settings"
   loki_data:
     driver: local
+    labels:
+      com.enclavr.backup: "false"
+      com.enclavr.description: "Loki log data"
   backup_data:
     driver: local
+    labels:
+      com.enclavr.backup: "true"
+      com.enclavr.description: "PostgreSQL backup archives"
 
 networks:
   frontend:
     name: enclavr_frontend
     driver: bridge
+    labels:
+      com.enclavr.network: "frontend"
+      com.enclavr.description: "External-facing network for frontend and coturn"
   backend:
     name: enclavr_backend
     driver: bridge
     internal: true
+    labels:
+      com.enclavr.network: "backend"
+      com.enclavr.description: "Internal network for database and cache services"
   monitoring:
     name: enclavr_monitoring
     driver: bridge
     internal: true
+    labels:
+      com.enclavr.network: "monitoring"
+      com.enclavr.description: "Internal network for monitoring and logging stack"
