@@ -3,7 +3,7 @@ global:
   evaluation_interval: 15s
   external_labels:
     cluster: 'enclavr'
-    environment: '${SENTRY_ENVIRONMENT:-production}'
+    environment: 'production'
 
 alerting:
   alertmanagers:
