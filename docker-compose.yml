@@ -13,6 +13,7 @@ services:
       PGDATA: /var/lib/postgresql/18/docker
     volumes:
       - postgres_data:/var/lib/postgresql/18/docker
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     restart: unless-stopped
     stop_grace_period: 30s
     healthcheck:
@@ -24,6 +25,7 @@ services:
     labels:
       logging: "alloy"
       backup: "postgres"
+      com.centurylinklabs.watchtower.enable: "true"
     # Security: postgres image runs as non-root by default
     # Resource limits for production stability
     deploy:
@@ -59,12 +61,13 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     command: >
       sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then
-        redis-server --appendonly yes --save 60 1 --maxmemory 200mb --maxmemory-policy allkeys-lru --requirepass \"$$REDIS_PASSWORD\";
+        redis-server /etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\";
       else
-        redis-server --appendonly yes --save 60 1 --maxmemory 200mb --maxmemory-policy allkeys-lru;
+        redis-server /etc/redis/redis.conf;
       fi"
     volumes:
       - redis_data:/data
+      - ./redis.conf:/etc/redis/redis.conf:ro
     restart: unless-stopped
     stop_grace_period: 10s
     healthcheck:
@@ -347,7 +350,9 @@ services:
     tmpfs:
       - /tmp:size=64M,mode=1777
     networks:
-      - monitoring
+      monitoring:
+        aliases:
+          - prom
 
   # ============================================
   # Node Exporter (System Metrics)
@@ -514,7 +519,9 @@ services:
     tmpfs:
       - /tmp:size=64M,mode=1777
     networks:
-      - monitoring
+      monitoring:
+        aliases:
+          - dashboard
 
   # ============================================
   # Alertmanager (Alert Routing & Notifications)
@@ -593,7 +600,9 @@ services:
     tmpfs:
       - /tmp:size=64M,mode=1777
     networks:
-      - monitoring
+      monitoring:
+        aliases:
+          - logs
 
   # ============================================
   # Grafana Alloy (Log Collection Agent)
@@ -772,6 +781,50 @@ services:
       - no-new-privileges:true
     networks:
       - frontend
+
+  # ============================================
+  # Watchtower (Automated Container Updates)
+  # ============================================
+  # Monitors running containers and updates when new images are available
+  # Only updates containers with com.centurylinklabs.watchtower.enable=true label
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    profiles:
+      - maintenance
+      - full
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_INCLUDE_STOPPED: "false"
+      WATCHTOWER_POLL_INTERVAL: "${WATCHTOWER_POLL_INTERVAL:-86400}"
+      WATCHTOWER_LOG_LEVEL: "${WATCHTOWER_LOG_LEVEL:-info}"
+      WATCHTOWER_ROLLING_RESTART: "true"
+      WATCHTOWER_TIMEOUT: "30s"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pgrep", "watchtower"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777
+    networks:
+      - monitoring
 
 volumes:
   postgres_data:

@@ -15,7 +15,14 @@
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(self), geolocation=()"
 		-Server
+	}
+
+	# Security: Block access to hidden files
+	@blocked path /.git* /.env* /.docker* /docker-compose*
+	handle @blocked {
+		abort
 	}
 
 	encode gzip
@@ -25,14 +32,58 @@
 	}
 }
 
-# API - automatic HTTPS
+# API - automatic HTTPS with WebSocket support for voice chat
 api.{$DOMAIN} {
 	reverse_proxy server:8080
+
+	# WebSocket upgrade support for real-time voice signaling
+	@websockets {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @websockets server:8080 {
+		header_up Host {host}
+		header_up X-Real-IP {remote}
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto {scheme}
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 		X-Content-Type-Options "nosniff"
 		-Server
+	}
+
+	# API rate limiting
+	rate_limit {
+		zone api {
+			key {remote_host}
+			events 100
+			window 60s
+		}
+	}
+
+	encode gzip
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Monitoring - Grafana (optional, only if MONITORING_DOMAIN is set)
+# Enable with: docker compose --profile tls --profile monitoring up -d
+{$MONITORING_DOMAIN} {
+	reverse_proxy grafana:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	basicauth {
+		{$GRAFANA_BASIC_AUTH_USER} {$GRAFANA_BASIC_AUTH_HASH}
 	}
 
 	encode gzip
