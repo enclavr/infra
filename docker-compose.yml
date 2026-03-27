@@ -55,7 +55,14 @@ services:
   # Used for WebSocket pub/sub across multiple server instances
   redis:
     image: redis:8-alpine
-    command: redis-server --appendonly yes --save 60 1 --maxmemory 200mb --maxmemory-policy allkeys-lru
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command: >
+      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then
+        redis-server --appendonly yes --save 60 1 --maxmemory 200mb --maxmemory-policy allkeys-lru --requirepass \"$$REDIS_PASSWORD\";
+      else
+        redis-server --appendonly yes --save 60 1 --maxmemory 200mb --maxmemory-policy allkeys-lru;
+      fi"
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -136,7 +143,7 @@ services:
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
       UPLOAD_DIR: ${UPLOAD_DIR:-./uploads}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     restart: unless-stopped
     stop_grace_period: 15s
     init: true
@@ -174,6 +181,7 @@ services:
     networks:
       - frontend
       - backend
+      - monitoring
 
   # ============================================
   # Next.js Frontend (Static Build + Nginx)
@@ -291,7 +299,7 @@ services:
   # ============================================
   # Time-series database for collecting metrics
   prometheus:
-    image: prom/prometheus:v2.54.0-alpine
+    image: prom/prometheus:v3.10.0-alpine
     container_name: prometheus
     profiles:
       - monitoring
@@ -364,8 +372,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    cap_add:
-      - SYS_PTRACE
     read_only: true
     tmpfs:
       - /tmp
@@ -472,7 +478,7 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: "${GRAFANA_USER}"
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD}"
-      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_INSTALL_PLUGINS: ""
       GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL:-}"
       GF_SERVER_SERVE_FROM_SUB_PATH: "${GRAFANA_SERVE_FROM_SUB_PATH:-false}"
     ports:
@@ -507,6 +513,47 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=64M,mode=1777
+    networks:
+      - monitoring
+
+  # ============================================
+  # Alertmanager (Alert Routing & Notifications)
+  # ============================================
+  # Routes Prometheus alerts to notification channels
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: alertmanager
+    profiles:
+      - monitoring
+      - full
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - alertmanager_data:/alertmanager
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777
     networks:
       - monitoring
 
@@ -593,7 +640,7 @@ services:
   # Provides restricted read-only access to Docker API for Alloy
   # Only allows container listing and log reading - no privileged operations
   docker-socket-proxy:
-    image: tecnativa/docker-socket-proxy:latest
+    image: tecnativa/docker-socket-proxy:0.1.2
     container_name: docker-socket-proxy
     profiles:
       - monitoring
@@ -636,17 +683,16 @@ services:
   # Runs pg_dumpall on a schedule, compresses and rotates backups
   # Configure BACKUP_RETENTION_DAYS (default: 7) and BACKUP_CRON
   postgres-backup:
-    image: postgres:18.3-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres-backup
     container_name: postgres-backup
     profiles:
       - backup
       - full
-    entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         echo "Backup service started. Schedule: $${BACKUP_CRON:-0 2 * * *}"
-        # Install supercronic for cron in containers
-        apk add --no-cache supercronic curl >/dev/null 2>&1
         echo "$${BACKUP_CRON:-0 2 * * *} /backup.sh 2>&1" > /tmp/crontab
         supercronic /tmp/crontab
     environment:
@@ -659,7 +705,6 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:-enclavr}
     volumes:
       - backup_data:/backups
-      - ./backup.sh:/backup.sh:ro
     restart: unless-stopped
     depends_on:
       postgres:
@@ -684,6 +729,49 @@ services:
       - no-new-privileges:true
     networks:
       - backend
+
+  # ============================================
+  # Caddy Reverse Proxy (TLS Termination)
+  # ============================================
+  # Automatic HTTPS with Let's Encrypt
+  # Use --profile tls to enable
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    profiles:
+      - tls
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - frontend
 
 volumes:
   postgres_data:
@@ -721,11 +809,26 @@ volumes:
     labels:
       com.enclavr.backup: "false"
       com.enclavr.description: "Loki log data"
+  alertmanager_data:
+    driver: local
+    labels:
+      com.enclavr.backup: "false"
+      com.enclavr.description: "Alertmanager data"
   backup_data:
     driver: local
     labels:
       com.enclavr.backup: "true"
       com.enclavr.description: "PostgreSQL backup archives"
+  caddy_data:
+    driver: local
+    labels:
+      com.enclavr.backup: "false"
+      com.enclavr.description: "Caddy TLS certificates and data"
+  caddy_config:
+    driver: local
+    labels:
+      com.enclavr.backup: "false"
+      com.enclavr.description: "Caddy configuration cache"
 
 networks:
   frontend:

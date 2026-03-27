@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eo pipefail
 
 BACKUP_DIR="/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -14,6 +14,12 @@ pg_dumpall \
   -U "${DB_USER:-enclavr}" \
   --clean \
   --if-exists | gzip > "${BACKUP_FILE}"
+
+if [ ! -s "${BACKUP_FILE}" ]; then
+  echo "[$(date)] ERROR: Backup file is empty - pg_dumpall may have failed"
+  rm -f "${BACKUP_FILE}"
+  exit 1
+fi
 
 BACKUP_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
 echo "[$(date)] Backup completed: ${BACKUP_FILE} (${BACKUP_SIZE})"

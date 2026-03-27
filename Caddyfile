@@ -1,0 +1,43 @@
+{
+	# Email for Let's Encrypt notifications
+	email {$ACME_EMAIL}
+
+	# Use staging CA for testing (remove for production)
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Frontend - automatic HTTPS
+{$DOMAIN} {
+	reverse_proxy frontend:80
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	encode gzip
+	log {
+		output stdout
+		format console
+	}
+}
+
+# API - automatic HTTPS
+api.{$DOMAIN} {
+	reverse_proxy server:8080
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	encode gzip
+	log {
+		output stdout
+		format console
+	}
+}

@@ -1,0 +1,8 @@
+FROM postgres:18.3-alpine
+
+RUN apk add --no-cache supercronic curl
+
+COPY backup.sh /backup.sh
+RUN chmod +x /backup.sh
+
+ENTRYPOINT ["/bin/sh", "-c"]
