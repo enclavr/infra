@@ -6,6 +6,7 @@ services:
   # PGDATA path updated for PostgreSQL 18 compatibility
   postgres:
     image: postgres:18.3-alpine
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-enclavr}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-enclavr}
@@ -71,7 +72,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 10s
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "if [ -n \"$REDIS_PASSWORD\" ]; then redis-cli -a \"$REDIS_PASSWORD\" ping | grep -q PONG; else redis-cli ping | grep -q PONG; fi"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -120,7 +121,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-enclavr}
       DB_NAME: ${DB_NAME:-enclavr}
       DB_SSLMODE: ${DB_SSLMODE:-disable}
-      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
       REFRESH_EXPIRATION: ${REFRESH_EXPIRATION:-168h}
       OIDC_ENABLED: ${OIDC_ENABLED:-false}
@@ -203,7 +204,7 @@ services:
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
         NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     restart: unless-stopped
     stop_grace_period: 10s
     init: true
@@ -255,9 +256,8 @@ services:
       - TURN_PASS=${TURN_PASS}
       - REALM=${REALM:-enclavr}
     ports:
-      - "3478:3478"
+      - "127.0.0.1:3478:3478"
       - "3478:3478/udp"
-      - "49152-49172:49152-49172"
       - "49152-49172:49152-49172/udp"
     volumes:
       - turn_data:/var/lib/coturn
@@ -267,7 +267,7 @@ services:
       --user=$${TURN_USER}:$${TURN_PASS}
       --realm=$${REALM:-enclavr} --listening-port=3478
       --min-port=49152 --max-port=49172
-      --prometheus
+      --prometheus --prometheus-addr=0.0.0.0 --prometheus-port=9641
       --lt-cred-mech --no-tls --no-tlsv1 --no-tlsv1_1"
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "3478"]
@@ -487,7 +487,7 @@ services:
       GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL:-}"
       GF_SERVER_SERVE_FROM_SUB_PATH: "${GRAFANA_SERVE_FROM_SUB_PATH:-false}"
     ports:
-      - "3030:3000"
+      - "127.0.0.1:3030:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -781,6 +781,7 @@ services:
       - no-new-privileges:true
     networks:
       - frontend
+      - monitoring
 
   # ============================================
   # Watchtower (Automated Container Updates)
@@ -788,7 +789,7 @@ services:
   # Monitors running containers and updates when new images are available
   # Only updates containers with com.centurylinklabs.watchtower.enable=true label
   watchtower:
-    image: containrrr/watchtower:latest
+    image: containrrr/watchtower:1.7.1
     container_name: watchtower
     profiles:
       - maintenance

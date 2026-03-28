@@ -34,14 +34,7 @@
 
 # API - automatic HTTPS with WebSocket support for voice chat
 api.{$DOMAIN} {
-	reverse_proxy server:8080
-
-	# WebSocket upgrade support for real-time voice signaling
-	@websockets {
-		header Connection *Upgrade*
-		header Upgrade websocket
-	}
-	reverse_proxy @websockets server:8080 {
+	reverse_proxy server:8080 {
 		header_up Host {host}
 		header_up X-Real-IP {remote}
 		header_up X-Forwarded-For {remote}

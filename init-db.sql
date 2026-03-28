@@ -7,7 +7,8 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";        -- Trigram similarity for text 
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements"; -- Query performance tracking
 
 -- Configure pg_stat_statements for query monitoring
-ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';
+-- NOTE: shared_preload_libraries is set via docker-compose command, not here,
+-- because ALTER SYSTEM SET shared_preload_libraries requires a PostgreSQL restart
 ALTER SYSTEM SET pg_stat_statements.track = 'all';
 ALTER SYSTEM SET pg_stat_statements.max = 5000;
 ALTER SYSTEM SET pg_stat_statements.track_utility = on;
