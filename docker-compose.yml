@@ -203,8 +203,8 @@ services:
         NEXT_PUBLIC_TURN_USER: ${NEXT_PUBLIC_TURN_USER:-}
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
         NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
-    ports:
-      - "127.0.0.1:3000:80"
+    # Port mapping defined in docker-compose.override.yml for dev
+    # Production: use docker-compose.prod.yml with 127.0.0.1:3000:80
     restart: unless-stopped
     stop_grace_period: 10s
     init: true
