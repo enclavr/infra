@@ -9,7 +9,7 @@ services:
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-enclavr}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-enclavr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-enclavr}
       PGDATA: /var/lib/postgresql/18/docker
     volumes:
@@ -59,7 +59,7 @@ services:
   redis:
     image: redis:8-alpine
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     command: >
       sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then
         redis-server /etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\";
@@ -118,7 +118,7 @@ services:
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_USER: ${DB_USER:-enclavr}
-      DB_PASSWORD: ${DB_PASSWORD:-enclavr}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       DB_NAME: ${DB_NAME:-enclavr}
       DB_SSLMODE: ${DB_SSLMODE:-disable}
       JWT_SECRET: ${JWT_SECRET}
@@ -134,7 +134,7 @@ services:
       TURN_PASS: ${TURN_PASS:-}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       REDIS_DB: ${REDIS_DB:-0}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
@@ -406,7 +406,7 @@ services:
       - monitoring
       - full
     environment:
-      DATA_SOURCE_NAME: "postgresql://${DB_USER:-enclavr}:${DB_PASSWORD:-enclavr}@postgres:5432/${DB_NAME:-enclavr}?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${DB_USER:-enclavr}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_NAME:-enclavr}?sslmode=disable"
     volumes:
       - ./queries.yaml:/opt/postgres_exporter/queries.yaml:ro
     restart: unless-stopped
@@ -445,7 +445,7 @@ services:
       - full
     environment:
       REDIS_ADDR: "redis://redis:6379"
-      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
     restart: unless-stopped
     depends_on:
       redis:
@@ -708,10 +708,10 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: ${POSTGRES_USER:-enclavr}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-enclavr}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
       BACKUP_CRON: ${BACKUP_CRON:-0 2 * * *}
-      PGPASSWORD: ${POSTGRES_PASSWORD:-enclavr}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - backup_data:/backups
     restart: unless-stopped
