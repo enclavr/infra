@@ -48,11 +48,3 @@ loki.write "enclavr" {
     url = "http://loki:3100/loki/api/v1/push"
   }
 }
-
-// Collect Docker daemon logs
-loki.source.journal "dockerd" {
-  forward_to = [loki.write.enclavr.receiver]
-  labels     = {
-    job = "dockerd",
-  }
-}

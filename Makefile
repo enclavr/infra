@@ -13,7 +13,7 @@ help: ## Show this help
 # ============================================
 
 up: ## Start core services (postgres, redis, server, frontend)
-	docker compose -f docker-compose.yml up -d
+	docker compose up -d
 
 down: ## Stop all services
 	docker compose down
@@ -38,26 +38,26 @@ validate: ## Validate docker-compose config
 # ============================================
 
 monitoring: ## Start with monitoring stack
-	docker compose -f docker-compose.yml --profile monitoring up -d
+	docker compose --profile monitoring up -d
 
 voice: ## Start with voice (coturn)
-	docker compose -f docker-compose.yml --profile voice up -d
+	docker compose --profile voice up -d
 
 backup: ## Start with backup service
-	docker compose -f docker-compose.yml --profile backup up -d
+	docker compose --profile backup up -d
 
 tls: ## Start with TLS (Caddy)
-	docker compose -f docker-compose.yml --profile tls up -d
+	docker compose --profile tls up -d
 
 full: ## Start all services
-	docker compose -f docker-compose.yml --profile full up -d
+	docker compose --profile full up -d
 
 # ============================================
 # Development
 # ============================================
 
 dev: ## Start in development mode (with hot reload)
-	docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
+	docker compose up -d
 
 prod: ## Start in production mode (all profiles)
 	docker compose -f docker-compose.yml --profile full --profile tls up -d
