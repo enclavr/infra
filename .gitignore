@@ -15,6 +15,9 @@ backup_*.sql.gz
 .DS_Store
 Thumbs.db
 
+# TLS certificates
+certs/
+
 # Editor files
 *.swp
 *.swo

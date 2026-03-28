@@ -258,17 +258,22 @@ services:
     ports:
       - "3478:3478"
       - "3478:3478/udp"
+      - "5349:5349"
+      - "5349:5349/udp"
       - "49152-49172:49152-49172/udp"
     volumes:
-      - turn_data:/var/lib/coturn
+      - ./certs/turn:/etc/coturn/certs:ro
     restart: unless-stopped
     command: >
       sh -c "turnserver -n --no-stdout-log --log-file=stdout
       --user=$${TURN_USER}:$${TURN_PASS}
       --realm=$${REALM:-enclavr} --listening-port=3478
+      --tls-listening-port=5349
+      --cert=/etc/coturn/certs/cert.pem
+      --pkey=/etc/coturn/certs/key.pem
       --min-port=49152 --max-port=49172
       --prometheus --prometheus-addr=0.0.0.0 --prometheus-port=9641
-      --lt-cred-mech --no-tls --no-tlsv1 --no-tlsv1_1"
+      --lt-cred-mech --no-tlsv1 --no-tlsv1_1"
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "3478"]
       interval: 30s
@@ -293,6 +298,10 @@ services:
       - NET_RAW
     security_opt:
       - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+      - /var/lib/coturn:size=64M
     networks:
       - frontend
       - monitoring
@@ -838,11 +847,6 @@ volumes:
     labels:
       com.enclavr.backup: "false"
       com.enclavr.description: "Redis cache and pub/sub data"
-  turn_data:
-    driver: local
-    labels:
-      com.enclavr.backup: "false"
-      com.enclavr.description: "Coturn TURN server data"
   server_uploads:
     driver: local
     labels:
