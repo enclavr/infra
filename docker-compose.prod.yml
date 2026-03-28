@@ -1,0 +1,28 @@
+# Production overrides for docker-compose.yml
+# Use: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file is NOT automatically loaded (unlike docker-compose.override.yml)
+# It provides production-specific configuration:
+# - Frontend port mapping (Nginx on port 80 -> host 3000)
+# - Production environment overrides
+# - No dev-specific volumes or hot-reload
+
+services:
+  server:
+    environment:
+      SENTRY_ENVIRONMENT: production
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+
+  frontend:
+    ports:
+      - "127.0.0.1:3000:80"
+    environment:
+      NODE_ENV: production
+
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
