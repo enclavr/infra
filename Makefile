@@ -67,16 +67,16 @@ prod: ## Start in production mode (all profiles)
 # ============================================
 
 db-shell: ## Open PostgreSQL shell
-	docker compose exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+	docker compose exec postgres psql -U $$POSTGRES_USER -d $$POSTGRES_DB
 
 redis-shell: ## Open Redis CLI
 	docker compose exec redis redis-cli
 
 pg-backup: ## Create manual PostgreSQL backup
-	docker compose exec postgres pg_dumpall -U $(POSTGRES_USER) | gzip > backup_$$(date +%Y%m%d_%H%M%S).sql.gz
+	docker compose exec postgres pg_dumpall -U $$POSTGRES_USER | gzip > backup_$$(date +%Y%m%d_%H%M%S).sql.gz
 
 pg-restore: ## Restore PostgreSQL from backup (usage: make pg-restore FILE=backup.sql.gz)
-	gunzip -c $(FILE) | docker compose exec -T postgres psql -U $(POSTGRES_USER)
+	gunzip -c $(FILE) | docker compose exec -T postgres psql -U $$POSTGRES_USER
 
 # ============================================
 # Maintenance

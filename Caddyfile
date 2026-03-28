@@ -47,14 +47,9 @@ api.{$DOMAIN} {
 		-Server
 	}
 
-	# API rate limiting
-	rate_limit {
-		zone api {
-			key {remote_host}
-			events 100
-			window 60s
-		}
-	}
+	# NOTE: API rate limiting requires a custom Caddy build with caddy-ratelimit module
+	# Build with: xcaddy build --with github.com/mholt/caddy-ratelimit
+	# Then update the docker-compose.yml image to use your custom build
 
 	encode gzip
 	log {
