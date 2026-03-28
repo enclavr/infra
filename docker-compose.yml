@@ -121,7 +121,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       DB_NAME: ${DB_NAME:-enclavr}
       DB_SSLMODE: ${DB_SSLMODE:-disable}
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
       REFRESH_EXPIRATION: ${REFRESH_EXPIRATION:-168h}
       OIDC_ENABLED: ${OIDC_ENABLED:-false}
@@ -257,7 +257,7 @@ services:
       - REALM=${REALM:-enclavr}
     ports:
       - "127.0.0.1:3478:3478"
-      - "3478:3478/udp"
+      - "127.0.0.1:3478:3478/udp"
       - "49152-49172:49152-49172/udp"
     volumes:
       - turn_data:/var/lib/coturn
