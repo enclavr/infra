@@ -204,7 +204,7 @@ services:
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
         NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
     ports:
-      - "127.0.0.1:3000:80"
+      - "127.0.0.1:3000:3000"
     restart: unless-stopped
     stop_grace_period: 10s
     init: true
@@ -215,7 +215,7 @@ services:
       logging: "alloy"
     # Health check for frontend (nginx serves static files)
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

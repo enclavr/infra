@@ -1,2 +1,23 @@
+# Environment secrets
 .env
-memory-bank/
+
+# Backup files
+*.sql.gz
+backup_*.sql.gz
+
+# Log files
+*.log
+
+# Docker volumes (local development)
+/data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
