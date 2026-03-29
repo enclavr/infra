@@ -17,6 +17,7 @@ updates:
           - "grafana/*"
           - "grafana/alloy"
           - "prometheuscommunity/*"
+          - "oliver006/*"
       databases:
         patterns:
           - "postgres*"
@@ -25,6 +26,17 @@ updates:
         patterns:
           - "*exporter*"
           - "*alertmanager*"
+      storage:
+        patterns:
+          - "minio/*"
+      networking:
+        patterns:
+          - "coturn/*"
+          - "caddy*"
+      maintenance:
+        patterns:
+          - "containrrr/*"
+          - "tecnativa/*"
     cooldown:
       default-days: 3
 
