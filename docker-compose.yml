@@ -777,7 +777,6 @@ services:
         mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
         for bucket in $$(echo $${MINIO_DEFAULT_BUCKETS} | tr ',' ' '); do
           mc mb --ignore-existing local/$${bucket};
-          mc anonymous set download local/$${bucket} 2>/dev/null || true;
           echo \"Bucket $${bucket} configured\";
         done;
         echo 'MinIO initialization complete';

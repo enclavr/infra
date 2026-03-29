@@ -19,14 +19,6 @@ services:
     environment:
       NODE_ENV: production
 
-  postgres:
-    ports:
-      - "127.0.0.1:5432:5432"
-
-  redis:
-    ports:
-      - "127.0.0.1:6379:6379"
-
   coturn:
     ports:
       - "3478:3478"
