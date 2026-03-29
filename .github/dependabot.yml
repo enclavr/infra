@@ -1,0 +1,55 @@
+version: 2
+updates:
+  # Docker Compose services
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    open-pull-requests-limit: 10
+    groups:
+      monitoring-stack:
+        patterns:
+          - "prom/*"
+          - "grafana/*"
+          - "grafana/loki"
+          - "grafana/alloy"
+      databases:
+        patterns:
+          - "postgres*"
+          - "redis*"
+      observability:
+        patterns:
+          - "*exporter*"
+          - "*alertmanager*"
+    cooldown:
+      default-days: 3
+
+  # Dockerfile (postgres-backup)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"
