@@ -15,8 +15,8 @@ updates:
         patterns:
           - "prom/*"
           - "grafana/*"
-          - "grafana/loki"
           - "grafana/alloy"
+          - "prometheuscommunity/*"
       databases:
         patterns:
           - "postgres*"

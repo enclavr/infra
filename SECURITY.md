@@ -40,8 +40,8 @@ For cross-cutting concerns affecting multiple components, report to the [root re
 
 Infrastructure security covers the deployment and runtime environment:
 
-- **Container Security:** All containers run with `cap_drop: ALL`, `no-new-privileges: true`, read-only filesystems where possible, non-root users
-- **Network Isolation:** Three isolated Docker bridge networks (frontend external, backend internal, monitoring internal) with no cross-network access except through defined service dependencies
+- **Container Security:** All containers run with `cap_drop: ALL`, `no-new-privileges: true`, read-only filesystems on most services (postgres and server require write access for data/migrations), non-root users
+- **Network Isolation:** Three isolated Docker bridge networks (frontend external, backend internal, monitoring internal) with network segmentation with frontend/backend/monitoring zones (some services like server and coturn span multiple networks by design)
 - **Secrets Management:** All secrets via environment variables, `.env` files excluded from version control, `.env.example` templates provided
 - **TLS/HTTPS:** Optional HTTPS via Caddy with Let's Encrypt (available via `--profile tls`, not enabled by default), TLS termination at reverse proxy
 - **Database Security:** PostgreSQL with password authentication, connection limits, no external port exposure
@@ -49,7 +49,7 @@ Infrastructure security covers the deployment and runtime environment:
 - **TURN Server:** Coturn with credential-based authentication, relay-only mode, no open relay
 - **Vulnerability Scanning:** Trivy container scanner in CI pipeline with SARIF output to GitHub Security tab
 - **Image Updates:** Watchtower for automated container image updates (available via `--profile maintenance`, not enabled by default)
-- **Backup Security:** Automated PostgreSQL backups with encryption and retention policies (available via `--profile backup`, not enabled by default)
+- **Backup Security:** Automated PostgreSQL backups with gzip compression (available via `--profile backup`, not enabled by default)
 - **Monitoring Security:** Grafana with password authentication, Prometheus and Loki on internal network only (available via `--profile monitoring`, not enabled by default)
 
 ## Container Hardening
@@ -67,7 +67,7 @@ cap_drop:
 
 | Network | Purpose | External Access |
 |---------|---------|-----------------|
-| frontend | User-facing services (Caddy, frontend) | Yes (ports 80, 443) |
+| frontend | User-facing services (Caddy, frontend) | Yes (ports 80, 443 with `--profile tls`) |
 | backend | Internal services (server, postgres, redis) | No |
 | monitoring | Observability stack (prometheus, grafana, loki) | No |
 

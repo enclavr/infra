@@ -52,7 +52,6 @@ docker compose logs -f     # View logs
 Back up these volumes regularly:
 - `postgres_data` - Database files
 - `redis_data` - Redis persistence (AOF)
-- `turn_data` - Coturn state
 - `server_uploads` - Uploaded files
 
 ## Troubleshooting
@@ -67,7 +66,7 @@ Back up these volumes regularly:
 
 ## CI/CD
 
-GitHub Actions (`.github/workflows/ci.yml`): Docker Compose validation, Hadolint, Trivy security scan.
+GitHub Actions (`.github/workflows/ci.yml`): Docker Compose validation, Trivy security scan.
 
 ```bash
 act push              # Run all CI jobs
@@ -84,4 +83,4 @@ coturn (TURN) <---> frontend (Next.js) ---> server (Go)
 
 ## License
 
-See [LICENSE](../LICENSE).
+See [LICENSE](./LICENSE).
