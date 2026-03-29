@@ -7,9 +7,19 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docker-compose.yml'
+      - 'docker-compose*.yml'
       - '.env*'
       - '.github/workflows/**'
+      - 'redis.conf'
+      - 'Caddyfile'
+      - 'prometheus*.yml'
+      - 'loki-config.yaml'
+      - 'alertmanager.yml'
+      - 'config.alloy'
+      - 'queries.yaml'
+      - 'Dockerfile*'
+      - 'backup.sh'
+      - 'init-db.sql'
   pull_request:
     branches: [main]
 

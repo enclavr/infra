@@ -256,16 +256,17 @@ services:
       - TURN_PASS=${TURN_PASS}
       - REALM=${REALM:-enclavr}
     ports:
-      - "3478:3478"
-      - "3478:3478/udp"
-      - "5349:5349"
-      - "5349:5349/udp"
-      - "49152-49172:49152-49172/udp"
+      - "127.0.0.1:3478:3478"
+      - "127.0.0.1:3478:3478/udp"
+      - "127.0.0.1:5349:5349"
+      - "127.0.0.1:5349:5349/udp"
+      - "127.0.0.1:49152-49172:49152-49172/udp"
     volumes:
       - ./certs/turn:/etc/coturn/certs:ro
     restart: unless-stopped
+    init: true
     command: >
-      sh -c "turnserver -n --no-stdout-log --log-file=stdout
+      sh -c "turnserver -n --log-file=stdout
       --user=$${TURN_USER}:$${TURN_PASS}
       --realm=$${REALM:-enclavr} --listening-port=3478
       --tls-listening-port=5349
