@@ -18,10 +18,12 @@ docker compose logs -f     # View logs
 
 | Service | Port | Description | Health Check |
 |---------|------|-------------|--------------|
-| postgres | 5432 | PostgreSQL 18 database | `pg_isready` |
-| redis | 6379 | Redis 8 cache & pub/sub | `redis-cli ping` |
-| server | 8080 | Go backend API | `wget http://localhost:8080/health` |
-| frontend | 80 | Next.js web UI (Nginx) | `wget http://localhost:80/` |
+| postgres | 5432 (dev only) | PostgreSQL 18 database | `pg_isready` |
+| redis | 6379 (dev only) | Redis 8 cache & pub/sub | `redis-cli ping` |
+| server | 8080 (localhost) | Go backend API | `wget http://localhost:8080/health` |
+| frontend | 80 (internal) | Next.js web UI (Nginx) | `wget http://localhost:80/` |
+
+> **Note:** postgres and redis ports are only exposed in development mode (`docker-compose.override.yml`). In production, use `docker-compose.prod.yml` which maps frontend to `127.0.0.1:3000:80`.
 
 ### Optional Services (Profile-Gated)
 
@@ -151,11 +153,16 @@ make health         # Check health of all services
 
 ## CI/CD
 
-GitHub Actions (`.github/workflows/ci.yml`): Docker Compose validation, Trivy security config scan.
+GitHub Actions (`.github/workflows/ci.yml`):
+- **validate**: Docker Compose config validation (`docker compose config`)
+- **security**: Trivy vulnerability scanner (config scan, SARIF output to GitHub Security tab)
+
+Triggers: push to main, pull requests, weekly schedule (Sunday midnight UTC).
 
 ```bash
 act push              # Run all CI jobs
 act -j validate       # Run specific job
+act -j security       # Run Trivy scan
 ```
 
 ## Architecture
