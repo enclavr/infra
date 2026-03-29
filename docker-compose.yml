@@ -523,8 +523,8 @@ services:
       - monitoring
       - full
     environment:
-      GF_SECURITY_ADMIN_USER: "${GRAFANA_USER}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD}"
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_USER:?GRAFANA_USER is required}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}"
       GF_INSTALL_PLUGINS: ""
       GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL:-}"
       GF_SERVER_SERVE_FROM_SUB_PATH: "${GRAFANA_SERVE_FROM_SUB_PATH:-false}"
@@ -703,6 +703,49 @@ services:
       NETWORKS: 0
       VOLUMES: 0
       POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2375/_ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777
+    networks:
+      - monitoring
+
+  # ============================================
+  # Docker Socket Proxy for Watchtower (Restricted)
+  # ============================================
+  # Provides restricted Docker API access for Watchtower
+  # Only allows container listing and update operations - no network/volume access
+  watchtower-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.1.2
+    container_name: watchtower-socket-proxy
+    profiles:
+      - maintenance
+      - full
+    environment:
+      CONTAINERS: 1
+      POST: 1
+      SERVICES: 0
+      TASKS: 0
+      NETWORKS: 0
+      VOLUMES: 0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
@@ -939,6 +982,7 @@ services:
       - maintenance
       - full
     environment:
+      DOCKER_HOST: tcp://watchtower-socket-proxy:2375
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_INCLUDE_STOPPED: "false"
@@ -946,9 +990,10 @@ services:
       WATCHTOWER_LOG_LEVEL: "${WATCHTOWER_LOG_LEVEL:-info}"
       WATCHTOWER_ROLLING_RESTART: "true"
       WATCHTOWER_TIMEOUT: "30s"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
+    depends_on:
+      watchtower-socket-proxy:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "pgrep", "watchtower"]
       interval: 60s
