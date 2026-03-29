@@ -79,3 +79,46 @@ act -j validate       # Run specific job
 Every task should do BOTH:
 1. **MAINTENANCE:** Fix configs, improve health checks, security hardening
 2. **NEW FEATURE:** Add services, monitoring, logging, networking improvements
+
+## GitHub Security (via `gh api`)
+
+The `gh` CLI has NO dedicated security commands. Use `gh api` for all security operations.
+
+### Dependabot Alerts
+```bash
+# List open Dependabot alerts
+gh api repos/enclavr/infra/dependabot/alerts --jq '.[] | {number, state, severity, package: .security_advisory.summary}'
+
+# Get alert details
+gh api repos/enclavr/infra/dependabot/alerts/ALERT_NUMBER
+
+# Dismiss an alert
+gh api -X PATCH repos/enclavr/infra/dependabot/alerts/ALERT_NUMBER -f state=dismissed -f dismissed_reason=no_fix_available
+```
+
+### Code Scanning Alerts
+```bash
+# List code scanning alerts (Trivy results)
+gh api repos/enclavr/infra/code-scanning/alerts --jq '.[] | {number, state, rule: .rule.id, severity: .rule.severity}'
+
+# Dismiss a false positive
+gh api -X PATCH repos/enclavr/infra/code-scanning/alerts/ALERT_NUMBER -f state=dismissed -f dismissed_reason=false_positive
+```
+
+### Secret Scanning
+```bash
+# List secret scanning alerts
+gh api repos/enclavr/infra/secret-scanning/alerts
+```
+
+### Dependabot Configuration
+Dependabot is configured in `.github/dependabot.yml`:
+- **docker-compose**: weekly Wednesday, grouped by monitoring-stack/databases/observability
+- **Docker**: weekly Wednesday
+- **GitHub Actions**: weekly Monday, grouped
+
+**Security workflow:** Check alerts -> Update Docker images -> Run `docker compose config` -> Commit -> Push
+
+## Git Push Policy
+
+**ALWAYS keep git commits up to date on the remote.** After every commit, push immediately: `git push origin main`. Never leave local-only commits.
