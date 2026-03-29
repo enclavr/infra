@@ -85,3 +85,14 @@ scrape_configs:
         target_label: instance
         regex: '([^:]+):\\d+'
         replacement: '${1}'
+
+  - job_name: 'minio'
+    metrics_path: /minio/v2/metrics/cluster
+    scheme: http
+    static_configs:
+      - targets: ['minio:9000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):\\d+'
+        replacement: '${1}'

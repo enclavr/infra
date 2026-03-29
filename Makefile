@@ -1,5 +1,5 @@
 .PHONY: help up down restart logs status build validate clean
-.PHONY: monitoring voice backup tls full
+.PHONY: monitoring voice backup tls storage full
 .PHONY: db-shell redis-shell pg-backup pg-restore
 .PHONY: dev prod
 
@@ -48,6 +48,9 @@ backup: ## Start with backup service
 
 tls: ## Start with TLS (Caddy)
 	docker compose --profile tls up -d
+
+storage: ## Start with MinIO object storage
+	docker compose --profile storage up -d
 
 full: ## Start all services
 	docker compose --profile full up -d

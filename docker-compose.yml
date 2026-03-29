@@ -697,6 +697,109 @@ services:
       - monitoring
 
   # ============================================
+  # MinIO (S3-Compatible Object Storage)
+  # ============================================
+  # S3-compatible storage for file uploads, avatars, and attachments
+  # Replaces local filesystem uploads with scalable object storage
+  # Console available at port 9001 for administration
+  minio:
+    image: minio/minio:RELEASE.2025-03-12T18-04-18Z
+    container_name: minio
+    profiles:
+      - storage
+      - full
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-enclavr}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS:-uploads}
+      MINIO_BROWSER: "on"
+      MINIO_PROMETHEUS_AUTH_TYPE: "public"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    restart: unless-stopped
+    stop_grace_period: 10s
+    init: true
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+      - /home/minio/.minio:size=128M
+    networks:
+      backend:
+        aliases:
+          - storage
+      monitoring:
+
+  # ============================================
+  # MinIO Client (Bucket Initialization)
+  # ============================================
+  # Creates default buckets and sets policies on startup
+  # Runs once and exits after configuration
+  minio-client:
+    image: minio/mc:RELEASE.2025-03-12T17-31-15Z
+    container_name: minio-client
+    profiles:
+      - storage
+      - full
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-enclavr}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS:-uploads}
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Waiting for MinIO to be ready...';
+        until mc ready local; do sleep 2; done;
+        mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+        for bucket in $$(echo $${MINIO_DEFAULT_BUCKETS} | tr ',' ' '); do
+          mc mb --ignore-existing local/$${bucket};
+          mc anonymous set download local/$${bucket} 2>/dev/null || true;
+          echo \"Bucket $${bucket} configured\";
+        done;
+        echo 'MinIO initialization complete';
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
+  # ============================================
   # PostgreSQL Backup (Automated Database Backups)
   # ============================================
   # Runs pg_dumpall on a schedule, compresses and rotates backups
@@ -888,6 +991,11 @@ volumes:
     labels:
       com.enclavr.backup: "false"
       com.enclavr.description: "Caddy configuration cache"
+  minio_data:
+    driver: local
+    labels:
+      com.enclavr.backup: "true"
+      com.enclavr.description: "MinIO object storage data"
 
 networks:
   frontend:

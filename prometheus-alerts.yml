@@ -1,6 +1,26 @@
 groups:
   - name: infrastructure
     rules:
+      # Dead man's switch - ensures alerting pipeline is working
+      - alert: DeadMansSwitch
+        expr: vector(1)
+        for: 5m
+        labels:
+          severity: none
+        annotations:
+          summary: "Dead man's switch"
+          description: "This alert fires continuously to ensure the alerting pipeline is functional."
+
+      # Prometheus self-monitoring
+      - alert: PrometheusTargetMissing
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus target {{ $labels.job }} is down"
+          description: "{{ $labels.job }} ({{ $labels.instance }}) has been unreachable for 5 minutes."
+
       # PostgreSQL alerts
       - alert: PostgreSQLDown
         expr: pg_up == 0
@@ -75,6 +95,70 @@ groups:
           summary: "Redis high key eviction rate"
           description: "Redis is evicting {{ $value }} keys/sec."
 
+      - alert: RedisHighConnectedClients
+        expr: redis_connected_clients > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high connected clients"
+          description: "Redis has {{ $value }} connected clients (threshold: 500)."
+
+      - alert: RedisRejectedConnections
+        expr: rate(redis_rejected_connections_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis rejecting connections"
+          description: "Redis is rejecting connections at {{ $value }}/sec."
+
+      - alert: RedisSlowlogGrowing
+        expr: redis_slowlog_length > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis slowlog growing"
+          description: "Redis slowlog has {{ $value }} entries, indicating slow commands."
+
+      - alert: RedisHighCpuUsage
+        expr: rate(redis_cpu_sys_seconds_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high CPU usage"
+          description: "Redis is consuming {{ $value }} CPU cores."
+
+      # MinIO alerts
+      - alert: MinIODown
+        expr: up{job="minio"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MinIO is down"
+          description: "MinIO object storage has been unreachable for more than 2 minutes."
+
+      - alert: MinIODiskSpaceLow
+        expr: minio_cluster_disk_free_bytes / minio_cluster_disk_total_bytes < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MinIO disk space low"
+          description: "MinIO has less than 10% disk space remaining."
+
+      - alert: MinIOHighErrorRate
+        expr: rate(minio_s3_requests_total{code=~"5.."}[5m]) / rate(minio_s3_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MinIO high error rate"
+          description: "MinIO S3 error rate is above 5%."
+
       # Node Exporter alerts
       - alert: HighCPUUsage
         expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
@@ -142,3 +226,21 @@ groups:
         annotations:
           summary: "Server high error rate"
           description: "Server error rate is above 5% (current: {{ $value | humanizePercentage }})."
+
+      - alert: ServerHighMemoryUsage
+        expr: process_resident_memory_bytes{job="server"} / 1024 / 1024 > 400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Server high memory usage"
+          description: "Server process is using {{ $value | humanize }}B of memory."
+
+      - alert: ServerHighGoroutines
+        expr: go_goroutines{job="server"} > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Server high goroutine count"
+          description: "Server has {{ $value }} goroutines, possible goroutine leak."
