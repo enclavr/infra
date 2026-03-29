@@ -34,11 +34,14 @@ docker compose restart        # Restart services
 
 | Service | Port | Description | Health Check |
 |---------|------|-------------|--------------|
-| postgres | 5432 | PostgreSQL 18 database | `pg_isready` |
-| redis | 6379 | Redis 8 cache & pub/sub | `redis-cli ping` |
+| postgres | 5432 | PostgreSQL 18 database | `pg_isready` + query check |
+| redis | 6379 | Redis 8 cache & pub/sub | `redis-cli ping` + write check |
 | server | 8080 | Go backend API | Depends on postgres/redis |
 | frontend | 3000 | Next.js web UI (Nginx) | HTTP GET / |
 | coturn | 3478 | TURN server for WebRTC | TCP port check |
+| uptime-kuma | 3001 | Uptime monitoring & status pages | HTTP GET / |
+| redis-commander | 8081 | Redis management UI | HTTP GET / |
+| db-migrate | - | Database migration runner | Runs on startup |
 
 ## Environment Configuration
 

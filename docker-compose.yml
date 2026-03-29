@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enclavr}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-enclavr} && psql -U ${POSTGRES_USER:-enclavr} -d ${POSTGRES_DB:-enclavr} -c 'SELECT 1'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,6 +27,12 @@ services:
       logging: "alloy"
       backup: "postgres"
       com.centurylinklabs.watchtower.enable: "true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+        tag: "{{.Name}}"
     # Security: postgres image runs as non-root by default
     # Resource limits for production stability
     deploy:
@@ -45,6 +51,8 @@ services:
       - SETUID
     security_opt:
       - no-new-privileges:true
+    sysctls:
+      net.core.somaxconn: "1024"
     networks:
       backend:
         aliases:
@@ -72,13 +80,19 @@ services:
     restart: unless-stopped
     stop_grace_period: 10s
     healthcheck:
-      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG; else redis-cli ping | grep -q PONG; fi"]
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG && redis-cli -a \"$$REDIS_PASSWORD\" SET _health_check ok NX EX 5 > /dev/null; else redis-cli ping | grep -q PONG && redis-cli SET _health_check ok NX EX 5 > /dev/null; fi"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 40s
     labels:
       logging: "alloy"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
     # Security: redis image runs as non-root by default
     # Resource limits for Redis 8 (performance optimized)
     deploy:
@@ -169,6 +183,12 @@ services:
         condition: service_healthy
     labels:
       logging: "alloy"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+        tag: "{{.Name}}"
     # Resource limits for production stability
     deploy:
       resources:
@@ -213,6 +233,12 @@ services:
         condition: service_healthy
     labels:
       logging: "alloy"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
     # Health check for frontend (nginx serves on port 80)
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
@@ -283,6 +309,12 @@ services:
       start_period: 40s
     labels:
       logging: "alloy"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
     # Resource limits for TURN server (UDP bandwidth can be high)
     deploy:
       resources:
@@ -939,6 +971,136 @@ services:
     networks:
       - monitoring
 
+  # ============================================
+  # Uptime Kuma (Service Uptime Monitoring)
+  # ============================================
+  # Self-hosted uptime monitoring with status pages
+  # Monitors HTTP, TCP, DNS, and WebSocket endpoints
+  # Provides public status pages for service availability
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    profiles:
+      - monitoring
+      - full
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - monitoring
+      - frontend
+
+  # ============================================
+  # Redis Commander (Redis Management UI)
+  # ============================================
+  # Web-based Redis management interface for debugging
+  # Inspect keys, monitor commands, manage data
+  redis-commander:
+    image: ghcr.io/joeferner/redis-commander:latest
+    container_name: redis-commander
+    profiles:
+      - debugging
+      - full
+    environment:
+      REDIS_HOSTS: "local:redis:6379:0:${REDIS_PASSWORD:-}"
+      HTTP_USER: "${REDIS_COMMANDER_USER:-admin}"
+      HTTP_PASSWORD: "${REDIS_COMMANDER_PASSWORD:-}"
+    ports:
+      - "127.0.0.1:8081:8081"
+    restart: unless-stopped
+    stop_grace_period: 5s
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+      - frontend
+
+  # ============================================
+  # PostgreSQL Migration Runner
+  # ============================================
+  # Runs database migrations on startup
+  # Executes SQL files from /migrations in alphabetical order
+  # Tracks applied migrations to prevent re-execution
+  db-migrate:
+    image: postgres:18.3-alpine
+    container_name: db-migrate
+    profiles:
+      - migration
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Waiting for PostgreSQL to be ready...';
+        until pg_isready -h postgres -U ${POSTGRES_USER:-enclavr}; do sleep 2; done;
+        echo 'PostgreSQL is ready. Running migrations...';
+        if [ -d /migrations ]; then
+          for f in /migrations/*.sql; do
+            if [ -f \"$$f\" ]; then
+              echo \"Applying migration: $$f\";
+              psql -h postgres -U ${POSTGRES_USER:-enclavr} -d ${POSTGRES_DB:-enclavr} -f \"$$f\" || echo \"Migration failed: $$f\";
+            fi
+          done;
+        else
+          echo 'No migrations directory found. Skipping.';
+        fi;
+        echo 'Migration complete.';
+      "
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
 volumes:
   postgres_data:
     driver: local
@@ -995,6 +1157,11 @@ volumes:
     labels:
       com.enclavr.backup: "true"
       com.enclavr.description: "MinIO object storage data"
+  uptime_kuma_data:
+    driver: local
+    labels:
+      com.enclavr.backup: "true"
+      com.enclavr.description: "Uptime Kuma monitoring data and status pages"
 
 networks:
   frontend:
@@ -1003,6 +1170,9 @@ networks:
     labels:
       com.enclavr.network: "frontend"
       com.enclavr.description: "External-facing network for frontend and coturn"
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
   backend:
     name: enclavr_backend
     driver: bridge
@@ -1010,6 +1180,8 @@ networks:
     labels:
       com.enclavr.network: "backend"
       com.enclavr.description: "Internal network for database and cache services"
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
   monitoring:
     name: enclavr_monitoring
     driver: bridge
@@ -1017,3 +1189,5 @@ networks:
     labels:
       com.enclavr.network: "monitoring"
       com.enclavr.description: "Internal network for monitoring and logging stack"
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"

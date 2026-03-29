@@ -1,5 +1,6 @@
 .PHONY: help up down restart logs status build validate clean
 .PHONY: monitoring voice backup tls storage full
+.PHONY: debugging migration
 .PHONY: db-shell redis-shell pg-backup pg-restore
 .PHONY: dev prod
 
@@ -51,6 +52,12 @@ tls: ## Start with TLS (Caddy)
 
 storage: ## Start with MinIO object storage
 	docker compose --profile storage up -d
+
+debugging: ## Start with debugging tools (Redis Commander)
+	docker compose --profile debugging up -d
+
+migration: ## Run database migrations
+	docker compose --profile migration up -d
 
 full: ## Start all services
 	docker compose --profile full up -d

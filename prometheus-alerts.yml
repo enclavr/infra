@@ -244,3 +244,13 @@ groups:
         annotations:
           summary: "Server high goroutine count"
           description: "Server has {{ $value }} goroutines, possible goroutine leak."
+
+      # Uptime Kuma alerts
+      - alert: UptimeKumaDown
+        expr: up{job="uptime-kuma"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Uptime Kuma is down"
+          description: "Uptime Kuma monitoring service has been unreachable for more than 2 minutes."
