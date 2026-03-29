@@ -2,7 +2,14 @@ FROM postgres:18.3-alpine
 
 RUN apk add --no-cache supercronic curl
 
+RUN addgroup -S backup && adduser -S backup -G backup
+
 COPY backup.sh /backup.sh
 RUN chmod +x /backup.sh
+
+USER backup
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD pg_isready -h localhost || exit 1
 
 ENTRYPOINT ["/bin/sh", "-c"]
