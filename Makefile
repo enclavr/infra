@@ -63,7 +63,7 @@ dev: ## Start in development mode (with hot reload)
 	docker compose up -d
 
 prod: ## Start in production mode (all profiles)
-	docker compose -f docker-compose.yml --profile full --profile tls up -d
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full --profile tls up -d
 
 # ============================================
 # Database Operations
