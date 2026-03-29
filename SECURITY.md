@@ -43,14 +43,14 @@ Infrastructure security covers the deployment and runtime environment:
 - **Container Security:** All containers run with `cap_drop: ALL`, `no-new-privileges: true`, read-only filesystems where possible, non-root users
 - **Network Isolation:** Three isolated Docker bridge networks (frontend external, backend internal, monitoring internal) with no cross-network access except through defined service dependencies
 - **Secrets Management:** All secrets via environment variables, `.env` files excluded from version control, `.env.example` templates provided
-- **TLS/HTTPS:** Automatic HTTPS via Caddy with Let's Encrypt, TLS termination at reverse proxy
+- **TLS/HTTPS:** Optional HTTPS via Caddy with Let's Encrypt (available via `--profile tls`, not enabled by default), TLS termination at reverse proxy
 - **Database Security:** PostgreSQL with password authentication, connection limits, no external port exposure
 - **Redis Security:** Password authentication, no external port exposure, internal network only
 - **TURN Server:** Coturn with credential-based authentication, relay-only mode, no open relay
 - **Vulnerability Scanning:** Trivy container scanner in CI pipeline with SARIF output to GitHub Security tab
-- **Image Updates:** Watchtower for automated container image updates (optional maintenance profile)
-- **Backup Security:** Automated PostgreSQL backups with encryption, backup retention policies
-- **Monitoring Security:** Grafana with password authentication, Prometheus and Loki on internal network only
+- **Image Updates:** Watchtower for automated container image updates (available via `--profile maintenance`, not enabled by default)
+- **Backup Security:** Automated PostgreSQL backups with encryption and retention policies (available via `--profile backup`, not enabled by default)
+- **Monitoring Security:** Grafana with password authentication, Prometheus and Loki on internal network only (available via `--profile monitoring`, not enabled by default)
 
 ## Container Hardening
 
