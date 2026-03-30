@@ -401,7 +401,7 @@ services:
   # ============================================
   # Exports system-level metrics (CPU, memory, disk, network)
   node-exporter:
-    image: prom/node-exporter:v1.8.0-alpine
+    image: prom/node-exporter:v1.8.2-alpine
     container_name: node-exporter
     profiles:
       - monitoring
@@ -442,7 +442,7 @@ services:
   # ============================================
   # Exports PostgreSQL query statistics and metrics
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.15.0-alpine
+    image: prometheuscommunity/postgres-exporter:v0.19.1-alpine
     container_name: postgres-exporter
     profiles:
       - monitoring
@@ -480,7 +480,7 @@ services:
   # ============================================
   # Exports Redis performance and memory metrics
   redis-exporter:
-    image: oliver006/redis_exporter:v1.61.0-alpine
+    image: oliver006/redis_exporter:v1.82.0-alpine
     container_name: redis-exporter
     profiles:
       - monitoring
@@ -517,7 +517,7 @@ services:
   # ============================================
   # Visualize metrics from Prometheus and logs from Loki
   grafana:
-    image: grafana/grafana:11.2.0
+    image: grafana/grafana:11.6
     container_name: grafana
     profiles:
       - monitoring
@@ -570,7 +570,7 @@ services:
   # ============================================
   # Routes Prometheus alerts to notification channels
   alertmanager:
-    image: prom/alertmanager:v0.28.1
+    image: prom/alertmanager:v0.31.1
     container_name: alertmanager
     profiles:
       - monitoring
@@ -612,7 +612,7 @@ services:
   # Lightweight log aggregation system by Grafana Labs
   # Label-based indexing without full-text indexing for low resource usage
   loki:
-    image: grafana/loki:3.6.8
+    image: grafana/loki:3.7
     container_name: loki
     profiles:
       - monitoring
@@ -652,7 +652,7 @@ services:
   # Replaces deprecated Promtail - collects Docker container logs
   # and forwards them to Loki for aggregation
   alloy:
-    image: grafana/alloy:v1.7.4
+    image: grafana/alloy:v1.14.2
     container_name: alloy
     profiles:
       - monitoring
@@ -778,7 +778,7 @@ services:
   # Replaces local filesystem uploads with scalable object storage
   # Console available at port 9001 for administration
   minio:
-    image: minio/minio:RELEASE.2025-03-12T18-04-18Z
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
     container_name: minio
     profiles:
       - storage
@@ -836,7 +836,7 @@ services:
   # Creates default buckets and sets policies on startup
   # Runs once and exits after configuration
   minio-client:
-    image: minio/mc:RELEASE.2025-03-12T17-31-15Z
+    image: minio/mc:RELEASE.2025-07-21T05-28-08Z
     container_name: minio-client
     profiles:
       - storage
@@ -1061,7 +1061,7 @@ services:
   # Web-based Redis management interface for debugging
   # Inspect keys, monitor commands, manage data
   redis-commander:
-    image: ghcr.io/joeferner/redis-commander:latest
+    image: ghcr.io/joeferner/redis-commander:v0.9.1
     container_name: redis-commander
     profiles:
       - debugging
