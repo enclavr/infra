@@ -401,7 +401,7 @@ services:
   # ============================================
   # Exports system-level metrics (CPU, memory, disk, network)
   node-exporter:
-    image: prom/node-exporter:v1.8.2-alpine
+    image: prom/node-exporter:v1.10.2-alpine
     container_name: node-exporter
     profiles:
       - monitoring
@@ -517,7 +517,7 @@ services:
   # ============================================
   # Visualize metrics from Prometheus and logs from Loki
   grafana:
-    image: grafana/grafana:11.6
+    image: grafana/grafana:12.4.2
     container_name: grafana
     profiles:
       - monitoring
@@ -612,7 +612,7 @@ services:
   # Lightweight log aggregation system by Grafana Labs
   # Label-based indexing without full-text indexing for low resource usage
   loki:
-    image: grafana/loki:3.7
+    image: grafana/loki:3.7.1
     container_name: loki
     profiles:
       - monitoring
@@ -652,7 +652,7 @@ services:
   # Replaces deprecated Promtail - collects Docker container logs
   # and forwards them to Loki for aggregation
   alloy:
-    image: grafana/alloy:v1.14.2
+    image: grafana/alloy:v1.15.0
     container_name: alloy
     profiles:
       - monitoring
