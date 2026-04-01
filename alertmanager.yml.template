@@ -1,5 +1,6 @@
 global:
   resolve_timeout: 5m
+  ${ALERTMANAGER_SMTP_CONFIG}
 
 route:
   group_by: ['alertname', 'severity']
@@ -17,20 +18,15 @@ route:
 
 receivers:
   - name: 'default'
-    # Configure webhook/email/Slack here
-    # Example webhook:
-    # webhook_configs:
-    #   - url: 'http://alertmanager-webhook:5001/'
+    webhook_configs:
+      - url: '${ALERTMANAGER_WEBHOOK_URL}'
+        send_resolved: true
 
   - name: 'critical'
-    # Configure critical notification channel here
-    # Example email:
-    # email_configs:
-    #   - to: 'ops@example.com'
-    #     from: 'alertmanager@example.com'
-    #     smarthost: 'smtp.example.com:587'
-    #     auth_username: 'alertmanager@example.com'
-    #     auth_password: 'password'
+    webhook_configs:
+      - url: '${ALERTMANAGER_CRITICAL_WEBHOOK_URL}'
+        send_resolved: true
+    ${ALERTMANAGER_EMAIL_CONFIG}
 
 inhibit_rules:
   - source_match:
